@@ -7,17 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:866289640315:android:6f44e175ab24f527aa93de",
+        "mobilesdk_app_id": "1:866289640315:android:1e72b8d5871e935baa93de",
         "android_client_info": {
-          "package_name": "com.example.yeetfit_admin"
+          "package_name": "com.sujin.yeetcoach"
         }
       },
       "oauth_client": [
         {
-          "client_id": "866289640315-npni3pf5d7hhral13cbrghidpp1qphtr.apps.googleusercontent.com",
+          "client_id": "866289640315-esh03eqsv2fh8lalnjhmdgqrmts3qkcg.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.yeetfit_admin",
+            "package_name": "com.sujin.yeetcoach",
             "certificate_hash": "92913095fd454dc9f1c44a6e6d74399f67c0c913"
           }
         },

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../../../core/theme/theme.dart';
 import '../../../../core/utils/form_validators.dart';
 import '../../../../core/widgets/custom_button.dart';
-import '../../../../core/widgets/custom_text_field.dart';
 import '../controllers/auth_controller.dart';
+import 'auth_text_field.dart';
 
 class SignUpForm extends StatefulWidget {
   const SignUpForm({super.key});
@@ -42,69 +41,65 @@ class _SignUpFormState extends State<SignUpForm> {
         key: formKey,
         child: Column(
           children: [
-            CustomTextField(
+            AuthTextField(
               controller: nameController,
               labelText: 'Name',
+              prefixIcon: Icons.person_outline,
               validator: FormValidators.validateUserName,
             ),
-            CustomTextField(
+            AuthTextField(
               controller: emailController,
               labelText: 'Email',
+              prefixIcon: Icons.email_outlined,
               keyboardType: TextInputType.emailAddress,
               validator: FormValidators.validateEmail,
             ),
-            CustomTextField(
+            AuthTextField(
               controller: passwordController,
               labelText: 'Password',
+              prefixIcon: Icons.lock_outline,
               obscureText: !showPassword,
               validator: FormValidators.validatePassword,
               suffixIcon: IconButton(
-                icon: Icon(
-                  showPassword ? Icons.visibility : Icons.visibility_off,
-                  color: AdminTheme.colors['textSecondary'],
-                ),
+                icon: Icon(showPassword ? Icons.visibility : Icons.visibility_off),
                 onPressed: () => setState(() => showPassword = !showPassword),
               ),
             ),
-            CustomTextField(
+            AuthTextField(
               controller: confirmPasswordController,
               labelText: 'Confirm Password',
+              prefixIcon: Icons.lock_outline,
               obscureText: !showConfirmPassword,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please confirm your password';
                 }
-                if (value != passwordController.text) {
-                  return 'Passwords do not match';
-                }
                 return null;
               },
               suffixIcon: IconButton(
-                icon: Icon(
-                  showConfirmPassword ? Icons.visibility : Icons.visibility_off,
-                  color: AdminTheme.colors['textSecondary'],
-                ),
+                icon: Icon(showConfirmPassword ? Icons.visibility : Icons.visibility_off),
                 onPressed: () =>
                     setState(() => showConfirmPassword = !showConfirmPassword),
               ),
             ),
             SizedBox(height: 24.h),
-            CustomButton(
-              text: 'Sign Up',
-              isLoading: authController.isLoading.value,
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  final success = await authController.signUp(
-                    emailController.text.trim(),
-                    passwordController.text.trim(),
-                    confirmPasswordController.text.trim(),
-                    nameController.text.trim(),
-                  );
-                  if (success) {
-                    Get.offAllNamed('/home/dashboard');
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: CustomButton(
+                text: 'Sign Up',
+                isLoading: authController.isLoading.value,
+                onPressed: () async {
+                  if (formKey.currentState!.validate()) {
+                    await authController.signUp(
+                      emailController.text.trim(),
+                      passwordController.text.trim(),
+                      confirmPasswordController.text.trim(),
+                      nameController.text.trim(),
+                    );
                   }
-                }
-              },
+                },
+              ),
             ),
           ],
         ),

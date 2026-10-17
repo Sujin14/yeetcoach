@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import '../theme/theme.dart';
+import '../routes/app_routes.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -22,16 +24,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AdminTheme.colors['surface'],
-      elevation: 2,
-      title: Text(title, style: AdminTheme.textStyles['title']),
+      backgroundColor: AppColors.surface,
+      elevation: 0,
+      title: Text(title, style: AppTheme.light.textTheme.titleLarge),
       actions: [
         if (showSearchToggle && showSearchBar != null && onSearchToggle != null)
           Obx(
             () => IconButton(
               icon: Icon(
                 showSearchBar!.value ? Icons.close : Icons.search,
-                color: AdminTheme.colors['primary'],
+                color: AppColors.primary,
               ),
               onPressed: onSearchToggle,
               tooltip: 'Search',
@@ -39,8 +41,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         if (showProfileIcon)
           IconButton(
-            icon: Icon(Icons.person, color: AdminTheme.colors['primary']),
-            onPressed: () => Get.toNamed('/settings'),
+            icon: Icon(Icons.person, color: AppColors.primary),
+            onPressed: () => Get.toNamed(AppRoutes.settings),
             tooltip: 'Profile',
           ),
       ],

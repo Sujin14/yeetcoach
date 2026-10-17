@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import '../theme/app_colors.dart';
 
-import '../theme/theme.dart';
-
-Future<bool> showConfirmationDialog(String item) async {
-    return await Get.dialog<bool>(
-          AlertDialog(
-            title: Text('Confirm Delete'),
-            content: Text('Are you sure you want to delete this $item?'),
-            actions: [
-              TextButton(
-                onPressed: () => Get.back(result: false),
-                child: Text('Cancel', style: TextStyle(color: AdminTheme.colors['textSecondary'])),
-              ),
-              TextButton(
-                onPressed: () => Get.back(result: true),
-                child: Text('Delete', style: TextStyle(color: AdminTheme.colors['error'])),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
+/// Shows a confirmation dialog and returns true if the user confirms, false otherwise.
+Future<bool> showConfirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmLabel = 'Delete',
+  String cancelLabel = 'Cancel',
+}) async {
+  return await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text(cancelLabel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: Text(confirmLabel),
+        ),
+      ],
+    ),
+  ) ?? false;
+}

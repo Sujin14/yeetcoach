@@ -1,18 +1,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:yeetcoach/core/utils/log_debug.dart';
+import 'package:yeetcoach/core/constants/firestore_collections.dart';
 
 class EmailAuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<UserCredential?> signInWithEmail(String email, String password) async {
+  Future<UserCredential?> loginWithEmail(String email, String password) async {
     try {
       return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
     } catch (e) {
-      print('Sign-in failed: $e');
+      logDebug('Login failed: $e');
       return null;
     }
   }
@@ -27,21 +29,27 @@ class EmailAuthService {
         email: email,
         password: password,
       );
-      await _firestore.collection('users').doc(userCredential.user?.uid).set({
+      final uid = userCredential.user?.uid;
+      if (uid == null) throw Exception('Sign-up succeeded but user UID is null');
+      await _firestore.collection(FirestoreCollections.users).doc(uid).set({
         'email': email,
         'name': name,
-        'role': 'admin',
         'createdAt': FieldValue.serverTimestamp(),
       });
       return userCredential;
     } catch (e) {
-      print('Signup failed: $e');
+      logDebug('Signup failed: $e');
       return null;
     }
   }
 
-  Future<bool> isAdmin(String uid) async {
-    final doc = await _firestore.collection('users').doc(uid).get();
-    return doc.exists && doc.data()?['role'] == 'admin';
+  Future<String?> getRole(String uid) async {
+    final doc = await _firestore.collection(FirestoreCollections.users).doc(uid).get();
+    return doc.data()?['role'] as String?;
   }
+
+  Future<void> signOut() => _auth.signOut();
+
+  /// Throws [FirebaseAuthException] so callers can map the error code to a message.
+  Future<void> sendPasswordResetEmail(String email) => _auth.sendPasswordResetEmail(email: email);
 }

@@ -1,68 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:yeetfit_admin/features/plan/presentation/controllers/base_plan_controller.dart.dart';
-import '../../../../core/theme/theme.dart';
-import '../controllers/diet_plan_controller.dart.dart';
-import '../controllers/workout_plan_controller.dart';
-import '../widgets/plan_list_item.dart';
+import 'package:yeetcoach/core/theme/app_colors.dart';
+import 'package:yeetcoach/core/theme/app_theme.dart';
+import 'package:yeetcoach/core/widgets/shimmers/plan_list_shimmer.dart';
+import 'package:yeetcoach/core/theme/app_spacing.dart';
+import '../../domain/entities/diet_plan.dart';
+import '../../domain/entities/workout_plan.dart';
+import '../controllers/plan_list_controller.dart';
+import '../widgets/plan_card.dart';
+import '../widgets/plan_empty_state.dart';
 
-class PlanListScreen extends StatelessWidget {
-  final String type;
-  final String uid;
+TextTheme get _textTheme => AppTheme.light.textTheme;
 
-  const PlanListScreen({super.key, required this.type, required this.uid});
+String _plural(int count, String noun) => '$count $noun${count == 1 ? '' : 's'}';
+
+PlanSummary _summaryOf(Object plan) => switch (plan) {
+      WorkoutPlan p => (
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          updatedAt: p.updatedAt,
+          countLabel: _plural(p.days.length, 'day'),
+          plan: p,
+        ),
+      DietPlan p => (
+          id: p.id,
+          title: p.title,
+          description: p.description,
+          updatedAt: p.updatedAt,
+          countLabel: _plural(p.meals.length, 'meal'),
+          plan: p,
+        ),
+      _ => throw ArgumentError('Unsupported plan type: ${plan.runtimeType}'),
+    };
+
+class PlanListScreen extends GetView<PlanListController> {
+  const PlanListScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final tag = 'plan-$uid-$type';
-    final controller = type == 'diet'
-        ? Get.put<DietPlanController>(DietPlanController(), tag: tag)
-        : Get.put<WorkoutPlanController>(WorkoutPlanController(), tag: tag);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!controller.isInitialized) {
-        controller.setupWithArguments({'uid': uid, 'type': type});
-        controller.isInitialized = true;
-      }
-    });
+    final isWorkout = controller.isWorkout;
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('${type.capitalizeFirstLetter} Plans', style: AdminTheme.textStyles['title']!.copyWith(color: AdminTheme.colors['textPrimary'])),
-        backgroundColor: AdminTheme.colors['surface'],
-        elevation: 2,
+        backgroundColor: AppColors.surface,
+        elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AdminTheme.colors['textPrimary']),
-          onPressed: () => Get.back(),
+          icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
+          tooltip: 'Back',
+          onPressed: Get.back,
+        ),
+        title: Text(
+          isWorkout ? 'Workout Plans' : 'Diet Plans',
+          style: _textTheme.titleLarge?.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: AppColors.onSurface,
+          ),
         ),
       ),
       body: Obx(() {
-        if (controller.isLoading.value) {
-          return Center(child: CircularProgressIndicator(color: AdminTheme.colors['primary']));
-        } else if (controller.plans.isEmpty) {
-          return Center(
-            child: Text(
-              'No ${type.capitalizeFirstLetter} Plans Found',
-              style: AdminTheme.textStyles['body']!.copyWith(color: AdminTheme.colors['textSecondary']),
-            ),
-          );
-        }
-        return ListView.builder(
-          itemCount: controller.plans.length,
-          itemBuilder: (context, index) {
-            final plan = controller.plans[index];
-            return PlanListItem(
-              plan: plan,
-              onEdit: () => controller.openPlanForm(mode: 'edit', plan: plan),
-              onDelete: () => controller.removePlan(plan.id!),
-            );
-          },
+        if (controller.isLoading.value) return const PlanListShimmer();
+
+        final plans = controller.plans.map(_summaryOf).toList();
+        if (plans.isEmpty) return PlanEmptyState(isWorkout: isWorkout);
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.md, AppSpacing.md, 96),
+          itemCount: plans.length,
+          separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.smd),
+          itemBuilder: (_, index) => PlanCard(summary: plans[index], controller: controller),
         );
       }),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => controller.openPlanForm(mode: 'add'),
-        backgroundColor: AdminTheme.colors['primary'],
-        child: Icon(Icons.add, color: AdminTheme.colors['surface']),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
+        icon: const Icon(Icons.add),
+        label: Text(
+          isWorkout ? 'New Workout Plan' : 'New Diet Plan',
+          style: _textTheme.labelLarge?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        onPressed: controller.openCreateForm,
       ),
     );
   }

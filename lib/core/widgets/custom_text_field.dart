@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../theme/theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
@@ -38,17 +39,17 @@ class CustomTextField extends StatelessWidget {
         onChanged: onChanged,
         decoration: InputDecoration(
           labelText: labelText,
-          labelStyle: AdminTheme.textStyles['body']!.copyWith(
-            color: AdminTheme.colors['textSecondary'],
+          labelStyle: AppTheme.light.textTheme.bodyMedium!.copyWith(
+            color: AppColors.subtle,
           ),
           hintText: hintText,
           suffixIcon: suffixIcon,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: AdminTheme.colors['primary']!),
+            borderSide: BorderSide(color: AppColors.primary),
           ),
         ),
-        style: AdminTheme.textStyles['body'],
+        style: AppTheme.light.textTheme.bodyMedium,
         validator: validator,
       ),
     );

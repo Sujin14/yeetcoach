@@ -1,125 +1,165 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
-import '../../features/auth/presentation/controllers/auth_controller.dart';
+import '../../features/auth/presentation/bindings/onboarding_binding.dart';
+import '../../features/calls/presentation/bindings/call_binding.dart';
+import '../../features/calls/presentation/bindings/incoming_call_binding.dart';
+import '../../features/calls/presentation/screens/call_screen.dart';
+import '../../features/calls/presentation/screens/incoming_call_screen.dart';
+import '../../features/challenges/presentation/bindings/challenge_detail_binding.dart';
+import '../../features/challenges/presentation/screens/challenge_detail_screen.dart';
+import '../../features/chat/presentation/bindings/chat_binding.dart';
+import '../../features/chat/presentation/bindings/chat_inbox_binding.dart';
+import '../../features/chat/presentation/screens/chat_inbox_screen.dart';
+import '../../features/chat/presentation/screens/chat_screen.dart';
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/onboarding_screen.dart';
 import '../../features/auth/presentation/screens/sign_up_screen.dart';
-import '../../features/clients/presentation/bindings/client_details_bindings.dart';
-import '../../features/clients/presentation/screens/clients_details_screen.dart';
-import '../../features/plan/presentation/controllers/diet_plan_controller.dart.dart';
-import '../../features/plan/presentation/controllers/workout_plan_controller.dart';
+import '../../features/clients/presentation/bindings/client_detail_binding.dart';
+import '../../features/clients/presentation/screens/client_detail_screen.dart';
+import '../../features/home/presentation/bindings/home_shell_binding.dart';
+import '../../features/home/presentation/screens/all_clients_screen.dart';
+import '../../features/home/presentation/screens/home_shell_screen.dart';
+import '../../features/notifications/presentation/bindings/notifications_binding.dart';
+import '../../features/notifications/presentation/screens/notifications_screen.dart';
+import '../../features/plan/domain/entities/plan_type.dart';
+import '../../features/plan/presentation/bindings/plan_form_binding.dart';
+import '../../features/plan/presentation/bindings/plan_list_binding.dart';
 import '../../features/plan/presentation/screens/plan_form_screen.dart';
 import '../../features/plan/presentation/screens/plan_list_screen.dart';
-import '../../features/plan/presentation/screens/plan_management_screen.dart';
+import '../../features/settings/presentation/bindings/settings_binding.dart';
+import '../../features/settings/presentation/screens/privacy_policy_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
-import '../widgets/bottom_nav_bar.dart';
+import '../../features/settings/presentation/screens/terms_screen.dart';
+import '../../features/splash/splash_screen.dart';
+import 'auth_middleware.dart';
+import 'guest_middleware.dart';
 
 class AppRoutes {
-  static String initialRoute() {
-    final user = FirebaseAuth.instance.currentUser;
-    return user != null ? '/home' : '/';
-  }
+  static const splash = '/splash';
+  static const login = '/';
+  static const signup = '/signup';
+  static const forgotPassword = '/forgot-password';
+  static const String onboarding = '/onboarding';
+  static const settings = '/settings';
+  static const privacyPolicy = '/settings/privacy-policy';
+  static const terms = '/settings/terms';
+  static const home = '/home';
+  static const notifications = '/home/notifications';
+  static const clients = '/home/clients';
+  static const clientDetails = '/home/client-details';
+  static const planList = '/home/plan-list';
+  static const planForm = '/home/plan-form';
+  static const call = '/home/call';
+  static const incomingCall = '/home/incoming-call';
+  static const chats = '/home/chats';
+  static const chat = '/home/chat';
+  static const challengeDetails = '/home/challenge-details';
+
+  static const List<String> goals = ['Weight Loss', 'Weight Gain', 'Muscle Building'];
+  static const String coachRole = 'admin';
+
+  static String planControllerTag(String uid, PlanType type) => 'plan-$uid-${type.value}';
+  static String chatControllerTag(String clientUid) => 'chat-$clientUid';
 
   static final routes = [
-    GetPage(name: '/', page: () => const LoginScreen()),
-    GetPage(name: '/signup', page: () => const SignUpScreen()),
-    GetPage(name: '/settings', page: () => const SettingsScreen()),
     GetPage(
-      name: '/home',
-      page: () => const BottomNavBar(),
-      children: [
-        GetPage(
-          name: '/client-details',
-          page: () => const ClientDetailsScreen(),
-          binding: ClientDetailsBinding(),
-        ),
-        GetPage(
-          name: '/plan-list',
-          page: () {
-            final args = Get.arguments;
-            return PlanListScreen(uid: args['uid'], type: args['type']);
-          },
-          binding: BindingsBuilder(() {
-            _registerPlanController();
-          }),
-        ),
-        GetPage(
-          name: '/plan-form',
-          page: () => const PlanFormScreen(),
-          binding: BindingsBuilder(() {
-            _registerPlanController();
-          }),
-        ),
-        GetPage(
-          name: '/diet-plan-management',
-          page: () => const PlanManagementScreen(),
-          binding: BindingsBuilder(() {
-            _registerPlanController(forceType: 'diet');
-          }),
-        ),
-        GetPage(
-          name: '/workout-plan-management',
-          page: () => const PlanManagementScreen(),
-          binding: BindingsBuilder(() {
-            _registerPlanController(forceType: 'workout');
-          }),
-        ),
-      ],
+      name: splash,
+      page: () => const SplashScreen(),
+      transition: Transition.noTransition,
+    ),
+    GetPage(name: login, page: () => const LoginScreen()),
+    GetPage(name: signup, page: () => const SignUpScreen()),
+    GetPage(
+      name: forgotPassword,
+      page: () => const ForgotPasswordScreen(),
+      middlewares: [GuestMiddleware()],
+    ),
+    GetPage(
+      name: onboarding,
+      page: () => const OnboardingScreen(),
+      binding: OnboardingBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: settings,
+      page: () => const SettingsScreen(),
+      binding: SettingsBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: privacyPolicy,
+      page: () => const PrivacyPolicyScreen(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: terms,
+      page: () => const TermsScreen(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: home,
+      page: () => const HomeShellScreen(),
+      binding: HomeShellBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: notifications,
+      page: () => const NotificationsScreen(),
+      binding: NotificationsBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: clients,
+      page: () => const AllClientsScreen(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: clientDetails,
+      page: () => const ClientDetailScreen(),
+      binding: ClientDetailBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: planList,
+      page: () => const PlanListScreen(),
+      binding: PlanListBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: planForm,
+      page: () => const PlanFormScreen(),
+      binding: PlanFormBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: call,
+      page: () => const CallScreen(),
+      binding: CallBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: incomingCall,
+      page: () => const IncomingCallScreen(),
+      binding: IncomingCallBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: chats,
+      page: () => const ChatInboxScreen(),
+      binding: ChatInboxBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: chat,
+      page: () => const ChatScreen(),
+      binding: ChatBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: challengeDetails,
+      page: () => const ChallengeDetailScreen(),
+      binding: ChallengeDetailBinding(),
+      middlewares: [AuthMiddleware()],
     ),
   ];
-
-  static void _registerPlanController({String? forceType}) {
-    final args = Get.arguments ?? {};
-    final uid = args['uid'] ?? '';
-    final type = forceType ?? args['type'];
-    final tag = 'plan-$uid-$type';
-
-    if (uid.isEmpty || type == null) return;
-
-    if (type == 'diet' && !Get.isRegistered<DietPlanController>(tag: tag)) {
-      final controller = DietPlanController();
-      controller.setupWithArguments(args);
-      Get.put<DietPlanController>(controller, tag: tag);
-    } else if (type == 'workout' && !Get.isRegistered<WorkoutPlanController>(tag: tag)) {
-      final controller = WorkoutPlanController();
-      controller.setupWithArguments(args);
-      Get.put<WorkoutPlanController>(controller, tag: tag);
-    } else {
-      final controller = type == 'diet'
-          ? Get.find<DietPlanController>(tag: tag)
-          : Get.find<WorkoutPlanController>(tag: tag);
-      controller.setupWithArguments(args);
-    }
-  }
-
-  static Future<String?> redirect(Routing? routing) async {
-    final user = FirebaseAuth.instance.currentUser;
-    final currentRoute = routing?.current ?? '';
-    final arguments = Get.arguments;
-    print(
-      'AppRoutes.redirect: Current route: $currentRoute, Arguments: $arguments',
-    );
-
-    if (user == null) {
-      print('AppRoutes.redirect: No user logged in, redirecting to /');
-      return '/';
-    }
-
-    final controller = Get.find<AuthController>();
-    final isAdmin = await controller.isAdmin(user.uid);
-    if (!isAdmin) {
-      print(
-        'AppRoutes.redirect: User ${user.uid} is not an admin, signing out and redirecting to /',
-      );
-      await FirebaseAuth.instance.signOut();
-      return '/';
-    }
-
-    if (currentRoute == '/' || currentRoute == '/signup') {
-      print('AppRoutes.redirect: Admin user, redirecting to /home');
-      return '/home';
-    }
-
-    print('AppRoutes.redirect: Allowing navigation to $currentRoute');
-    return null;
-  }
 }

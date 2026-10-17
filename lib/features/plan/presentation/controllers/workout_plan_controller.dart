@@ -1,216 +1,143 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../../core/theme/theme.dart';
-import '../../../../core/widgets/confirmation_dialog.dart';
-import '../../data/datasource/firestore_plan_service.dart';
-import '../../data/model/plan_model.dart';
-import '../../data/repositories/plan_repository_impl.dart';
-import '../../domain/usecases/assign_plan.dart';
-import '../../domain/usecases/get_client_plans.dart';
-import '../../domain/usecases/delete_plan.dart';
-import 'base_plan_controller.dart.dart';
+import 'package:uuid/uuid.dart';
+import 'package:yeetcoach/core/utils/log_debug.dart';
+import 'package:yeetcoach/core/utils/snackbar_helper.dart';
+import 'package:yeetcoach/features/plan/domain/entities/workout_plan.dart';
+import 'package:yeetcoach/features/plan/domain/repositories/plan_repository.dart';
 
+class WorkoutPlanController extends GetxController {
+  WorkoutPlanController(this._repository, {FirebaseAuth? auth}) : _auth = auth ?? FirebaseAuth.instance;
 
-class WorkoutPlanController extends BasePlanController {
-  final exercises = <Map<String, dynamic>>[].obs;
+  final PlanRepository _repository;
+  final FirebaseAuth _auth;
+  static const _uuid = Uuid();
 
-  WorkoutPlanController()
-      : super(
-          assignPlan: AssignPlan(PlanRepositoryImpl(service: FirestorePlanService())),
-          getClientPlans: GetClientPlans(PlanRepositoryImpl(service: FirestorePlanService())),
-          deletePlan: DeletePlan(PlanRepositoryImpl(service: FirestorePlanService())),
-          planType: 'workout',
-        );
+  // ── identity ──────────────────────────────────────────────────────────────
+  String clientUid = '';
+  String coachUid = '';
+  String? planId; // null = create, non-null = edit
+  DateTime? _createdAt;
 
-  @override
-  void initializeForm() {
-    isLoading.value = true;
-    final args = Get.arguments;
-    userId.value = args?['uid'] ?? '';
-    isEditMode.value = args?['mode'] == 'edit';
-    planId.value = args?['planId'] ?? '';
+  // ── form state ────────────────────────────────────────────────────────────
+  final RxString title = ''.obs;
+  final RxString description = ''.obs;
+  final RxList<WorkoutDay> days = <WorkoutDay>[].obs;
+  final RxBool isSaving = false.obs;
 
-    titleController.clear();
-    descriptionController.clear();
-    exercises.clear();
+  // ── lifecycle ─────────────────────────────────────────────────────────────
 
-    if (isEditMode.value && args?['plan'] != null) {
-      final PlanModel plan = args['plan'];
-      titleController.text = plan.title;
-      descriptionController.text = plan.details['description']?.toString() ?? '';
-      exercises.assignAll(
-        (plan.details['exercises'] as List).map((exercise) {
-          final instructions = (exercise['instructions'] as List? ?? []).map((instr) {
-            return {
-              'text': instr['text'] ?? '',
-              'controller': TextEditingController(text: instr['text'] ?? ''),
-            };
-          }).toList();
-          return {
-            'name': exercise['name'] ?? '',
-            'repsType': exercise['repsType'] ?? 'reps',
-            'reps': exercise['reps'].toString(),
-            'sets': exercise['sets'].toString(),
-            'description': exercise['description'] ?? '',
-            'instructions': instructions,
-            'videoUrl': exercise['videoUrl'] ?? '',
-            'controllers': {
-              'name': TextEditingController(text: exercise['name'] ?? ''),
-              'reps': TextEditingController(text: exercise['reps'].toString()),
-              'sets': TextEditingController(text: exercise['sets'].toString()),
-              'description': TextEditingController(text: exercise['description'] ?? ''),
-              'videoUrl': TextEditingController(text: exercise['videoUrl'] ?? ''),
-            },
-          };
-        }).toList(),
-      );
-    } else {
-      addExercise();
+  /// Expects `{'uid': String}` and optionally `{'plan': WorkoutPlan}` to edit an existing plan.
+  void setupWithArguments(Map args) {
+    clientUid = switch (args) {
+      {'uid': String uid} => uid,
+      _ => '',
+    };
+    coachUid = _auth.currentUser?.uid ?? '';
+    if (args case {'plan': WorkoutPlan existing}) {
+      planId = existing.id;
+      _createdAt = existing.createdAt;
+      title.value = existing.title;
+      description.value = existing.description;
+      days.assignAll(existing.days);
     }
-    isLoading.value = false;
   }
 
-  void addExercise() {
-    exercises.add({
-      'name': '',
-      'repsType': 'reps',
-      'reps': '',
-      'sets': '',
-      'description': '',
-      'instructions': [
-        {'text': '', 'controller': TextEditingController()},
-      ],
-      'videoUrl': '',
-      'controllers': {
-        'name': TextEditingController(),
-        'reps': TextEditingController(),
-        'sets': TextEditingController(),
-        'description': TextEditingController(),
-        'videoUrl': TextEditingController(),
-      },
-    });
-    exercises.refresh();
-    update();
+  // ── days ──────────────────────────────────────────────────────────────────
+  void addDay([String? label]) {
+    final trimmed = label?.trim() ?? '';
+    days.add(WorkoutDay(
+      dayLabel: trimmed.isEmpty ? 'Day ${days.length + 1}' : trimmed,
+      exercises: const [],
+    ));
   }
 
-  void addInstruction(int exerciseIndex) {
-    exercises[exerciseIndex]['instructions'].add({
-      'text': '',
-      'controller': TextEditingController(),
-    });
-    exercises.refresh();
-    update();
+  void removeDay(int index) {
+    if (!_isValidDayIndex(index)) return;
+    days.removeAt(index);
   }
 
-  Future<bool> removeExercise(int index) async {
-    final confirmed = await showConfirmationDialog('exercise');
-    if (!confirmed) return false;
-    final controllers = exercises[index]['controllers'] as Map<String, TextEditingController>;
-    for (var c in controllers.values) {
-      c.dispose();
-    }
-    for (var instr in exercises[index]['instructions']) {
-      instr['controller'].dispose();
-    }
-    exercises.removeAt(index);
-    exercises.refresh();
-    update();
-    return true;
+  void updateDayLabel(int index, String label) {
+    if (!_isValidDayIndex(index)) return;
+    days[index] = days[index].copyWith(dayLabel: label);
   }
 
-  Future<bool> removeInstruction(int exerciseIndex, int instructionIndex) async {
-    final confirmed = await showConfirmationDialog('instruction');
-    if (!confirmed) return false;
-    exercises[exerciseIndex]['instructions'][instructionIndex]['controller'].dispose();
-    exercises[exerciseIndex]['instructions'].removeAt(instructionIndex);
-    exercises.refresh();
-    update();
-    return true;
+  /// Uses ReorderableListView.onReorderItem semantics: [newIndex] is already adjusted for removal.
+  void reorderDays(int oldIndex, int newIndex) {
+    if (!_isValidDayIndex(oldIndex) || oldIndex == newIndex) return;
+    final day = days.removeAt(oldIndex);
+    days.insert(newIndex.clamp(0, days.length), day);
   }
 
-  void updateRepsType(int index, String repsType) {
-    exercises[index]['repsType'] = repsType;
-    exercises[index]['controllers']['reps'].clear();
-    exercises.refresh();
-    update();
+  // ── exercises ─────────────────────────────────────────────────────────────
+  void addExercise(int dayIndex, ExerciseEntry entry) {
+    if (!_isValidDayIndex(dayIndex)) return;
+    final day = days[dayIndex];
+    days[dayIndex] = day.copyWith(exercises: [...day.exercises, entry]);
   }
 
-  @override
+  void updateExercise(int dayIndex, int exIndex, ExerciseEntry entry) {
+    if (!_isValidExerciseIndex(dayIndex, exIndex)) return;
+    final day = days[dayIndex];
+    days[dayIndex] = day.copyWith(exercises: [...day.exercises]..[exIndex] = entry);
+  }
+
+  void removeExercise(int dayIndex, int exIndex) {
+    if (!_isValidExerciseIndex(dayIndex, exIndex)) return;
+    final day = days[dayIndex];
+    days[dayIndex] = day.copyWith(exercises: [...day.exercises]..removeAt(exIndex));
+  }
+
+  // ── save ──────────────────────────────────────────────────────────────────
   Future<bool> savePlan() async {
-    if (userId.value.isEmpty) {
-      error.value = 'No client selected. Please try again.';
-      Get.snackbar('Error', error.value,
-          backgroundColor: AdminTheme.colors['error'], colorText: AdminTheme.colors['surface']);
+    final validationError = _validate();
+    if (validationError != null) {
+      showErrorSnackbar(validationError);
       return false;
     }
 
-    if (formKey.currentState == null || !formKey.currentState!.validate()) {
-      return false;
-    }
-
-    final plan = PlanModel(
-      id: isEditMode.value ? planId.value : null,
-      title: titleController.text.trim().isEmpty ? 'Unnamed Plan' : titleController.text.trim(),
-      type: planType,
-      userId: userId.value,
-      assignedBy: FirebaseAuth.instance.currentUser?.uid ?? '',
-      details: {
-        'description': descriptionController.text.trim(),
-        'exercises': exercises.map((exercise) {
-          return {
-            'name': exercise['controllers']['name'].text.trim(),
-            'repsType': exercise['repsType'],
-            'reps': exercise['controllers']['reps'].text.trim(),
-            'sets': exercise['controllers']['sets'].text.trim(),
-            'description': exercise['controllers']['description'].text.trim(),
-            'instructions': (exercise['instructions'] as List).map((instr) {
-              return {'text': instr['controller'].text.trim()};
-            }).toList(),
-            'videoUrl': exercise['controllers']['videoUrl'].text.trim(),
-          };
-        }).toList(),
-      },
-      isFavorite: isEditMode.value ? plans.firstWhereOrNull((p) => p.id == planId.value)?.isFavorite ?? false : false,
-      createdAt: Timestamp.now(),
+    final isCreate = planId == null;
+    final now = DateTime.now();
+    final plan = WorkoutPlan(
+      id: planId ?? _uuid.v4(),
+      clientUid: clientUid,
+      trainerId: coachUid,
+      title: title.value.trim(),
+      description: description.value.trim(),
+      days: List.unmodifiable(days),
+      createdAt: _createdAt ?? now,
+      updatedAt: now,
     );
 
-    isLoading.value = true;
-    error.value = '';
+    isSaving.value = true;
     try {
-      final success = await assignPlan(userId.value, plan);
-      if (success) {
-        await fetchPlans();
-        Get.back(result: true);
-        Get.snackbar('Success', '$planType plan ${isEditMode.value ? 'updated' : 'assigned'} successfully',
-            backgroundColor: AdminTheme.colors['primary'], colorText: AdminTheme.colors['surface']);
-      } else {
-        error.value = 'Failed to save plan';
-        Get.snackbar('Error', error.value,
-            backgroundColor: AdminTheme.colors['error'], colorText: AdminTheme.colors['surface']);
+      final saved = await _repository.saveWorkoutPlan(plan);
+      if (!saved) {
+        showErrorSnackbar('Could not save plan. Please try again.');
+        return false;
       }
-      return success;
-    } catch (e) {
-      error.value = 'Error saving plan: $e';
-      Get.snackbar('Error', error.value,
-          backgroundColor: AdminTheme.colors['error'], colorText: AdminTheme.colors['surface']);
-      return false;
+      planId = plan.id;
+      _createdAt = plan.createdAt;
+      logDebug('WorkoutPlanController: saved plan ${plan.id} (create: $isCreate)');
+      showSuccessSnackbar(isCreate ? 'Plan created.' : 'Changes saved.');
+      return true;
     } finally {
-      isLoading.value = false;
+      isSaving.value = false;
     }
   }
 
-  @override
-  void onClose() {
-    for (final ex in exercises) {
-      for (var c in (ex['controllers'] as Map<String, TextEditingController>).values) {
-        c.dispose();
-      }
-      for (var c in (ex['instructions'] as List<Map<String, dynamic>>).map((i) => i['controller']).cast<TextEditingController>()) {
-        c.dispose();
-      }
-    }
-    super.onClose();
+  String? _validate() {
+    if (clientUid.isEmpty) return 'No client selected. Please go back and try again.';
+    if (coachUid.isEmpty) return 'You must be logged in to save a plan.';
+    if (title.value.trim().isEmpty) return 'Please give this plan a name.';
+    if (days.isEmpty) return 'Add at least one training day.';
+    final emptyDay = days.firstWhereOrNull((day) => day.exercises.isEmpty);
+    if (emptyDay != null) return '"${emptyDay.dayLabel}" has no exercises.';
+    return null;
   }
+
+  bool _isValidDayIndex(int index) => index >= 0 && index < days.length;
+
+  bool _isValidExerciseIndex(int dayIndex, int exIndex) =>
+      _isValidDayIndex(dayIndex) && exIndex >= 0 && exIndex < days[dayIndex].exercises.length;
 }

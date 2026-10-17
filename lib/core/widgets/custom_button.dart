@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../theme/theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -19,23 +20,23 @@ class CustomButton extends StatelessWidget {
     return ElevatedButton(
       onPressed: isLoading ? null : onPressed,
       style: ElevatedButton.styleFrom(
-        backgroundColor: AdminTheme.colors['primary'],
+        backgroundColor: AppColors.primary,
         padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 24.w),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
       ),
       child: isLoading
           ? SizedBox(
               width: 24.w,
               height: 24.h,
               child: CircularProgressIndicator(
-                color: AdminTheme.colors['surface'],
+                color: AppColors.surface,
                 strokeWidth: 2,
               ),
             )
           : Text(
               text,
-              style: AdminTheme.textStyles['button']!.copyWith(
-                color: AdminTheme.colors['surface'],
+              style: AppTheme.light.textTheme.labelLarge!.copyWith(
+                color: AppColors.surface,
               ),
             ),
     );
