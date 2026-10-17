@@ -44,20 +44,15 @@ class PlanListScreen extends GetView<PlanListController> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
+          icon: const Icon(Icons.arrow_back),
           tooltip: 'Back',
           onPressed: Get.back,
         ),
         title: Text(
           isWorkout ? 'Workout Plans' : 'Diet Plans',
-          style: _textTheme.titleLarge?.copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.onSurface,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
       body: Obx(() {

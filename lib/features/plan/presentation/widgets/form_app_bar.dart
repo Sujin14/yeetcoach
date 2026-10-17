@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:yeetcoach/core/theme/app_colors.dart';
-import 'package:yeetcoach/core/theme/app_theme.dart';
 import 'package:yeetcoach/core/theme/app_spacing.dart';
-
-TextTheme get _textTheme => AppTheme.light.textTheme;
 
 /// Pops with Navigator rather than Get.back, which closes an open snackbar instead of the route.
 Future<void> saveAndClose(BuildContext context, Future<bool> Function() save) async {
@@ -28,20 +25,15 @@ class FormAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AppColors.surface,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.close, color: AppColors.onSurface),
+        icon: const Icon(Icons.close),
         tooltip: 'Close',
         onPressed: () => Navigator.of(context).maybePop(),
       ),
       title: Text(
         title,
-        style: _textTheme.titleLarge?.copyWith(
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          color: AppColors.onSurface,
-        ),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
       ),
       actions: [
         Obx(() => isSaving.value
@@ -50,18 +42,14 @@ class FormAppBar extends StatelessWidget implements PreferredSizeWidget {
                 child: SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onPrimary),
                 ),
               )
             : TextButton(
                 onPressed: onSave,
-                child: Text(
+                child: const Text(
                   'Save',
-                  style: _textTheme.labelLarge?.copyWith(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.onPrimary),
                 ),
               )),
       ],

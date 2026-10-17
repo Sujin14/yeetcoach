@@ -103,6 +103,8 @@ void main() {
       expect(m.durationMinutes, 45);
       expect(m.description,     'Bring your mat');
       expect(m.createdAt,       createdAt);
+      expect(m.isGlobal,        isFalse);
+      expect(m.assignedClientUids, isEmpty);
     });
 
     test('defaults durationMinutes to 60 when absent', () {
@@ -182,6 +184,8 @@ void main() {
       expect(map['title'],            'Morning HIIT');
       expect(map['meetLink'],         'https://meet.google.com/abc');
       expect(map['durationMinutes'],  60);
+      expect(map['isGlobal'],         isFalse);
+      expect(map['assignedClientUids'], isEmpty);
     });
 
     test('scheduledAt and createdAt are Timestamps', () {

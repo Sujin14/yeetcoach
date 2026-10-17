@@ -49,6 +49,8 @@ class SessionRepository {
     required String meetLink,
     required DateTime scheduledAt,
     required int durationMinutes,
+    required bool isGlobal,
+    required List<String> assignedClientUids,
     String? description,
   }) async {
     if (_uid.isEmpty) throw StateError('You must be logged in to schedule a session.');
@@ -61,6 +63,12 @@ class SessionRepository {
     }
     if (!scheduledAt.isAfter(DateTime.now())) {
       throw StateError('Choose a future date and time.');
+    }
+    final audience = isGlobal
+        ? const <String>[]
+        : assignedClientUids.map((uid) => uid.trim()).where((uid) => uid.isNotEmpty).toList();
+    if (!isGlobal && audience.isEmpty) {
+      throw StateError('Pick at least one client or make the session global.');
     }
 
     final ref = _sessions.doc();
@@ -77,6 +85,8 @@ class SessionRepository {
       durationMinutes: durationMinutes,
       description: trimmedDescription.isEmpty ? null : trimmedDescription,
       createdAt: DateTime.now(),
+      isGlobal: isGlobal,
+      assignedClientUids: audience,
     );
     await ref.set(session.toMap(trainerName: trainerName, trainerPhoto: trainerPhoto));
 

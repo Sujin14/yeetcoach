@@ -25,21 +25,15 @@ class TermsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: AppColors.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.onSurface),
+          icon: const Icon(Icons.arrow_back),
           tooltip: 'Back',
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: Text(
+        title: const Text(
           'Terms & Conditions',
-          style: _textTheme.titleLarge?.copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: AppColors.onSurface,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
       body: SafeArea(

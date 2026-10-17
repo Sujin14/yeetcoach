@@ -35,12 +35,9 @@ class _YoutubePreviewScreenState extends State<YoutubePreviewScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
           'Video Preview',
-          style: TextStyle(color: Colors.white, fontSize: 14),
+          style: TextStyle(fontSize: 14),
           overflow: TextOverflow.ellipsis,
         ),
       ),

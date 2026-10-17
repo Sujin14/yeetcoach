@@ -22,36 +22,26 @@ class RequestsScreen extends GetView<CoachDashboardController> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: AppColors.surface,
         elevation: 0,
         title: Obx(() {
           final count = controller.pendingRequests.length;
           return Row(
             children: [
-              Text(
+              const Text(
                 'New Requests',
-                style: _textTheme.titleLarge?.copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onSurface,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               if (count > 0) ...[
                 const SizedBox(width: AppSpacing.sm),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: AppColors.onPrimary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '$count',
-                    style: _textTheme.labelSmall?.copyWith(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.onPrimary,
-                    ),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary),
                   ),
                 ),
               ],

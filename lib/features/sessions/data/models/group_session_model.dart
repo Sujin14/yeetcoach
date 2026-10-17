@@ -12,6 +12,8 @@ class GroupSessionModel extends GroupSession {
     super.durationMinutes = 60,
     super.description,
     required super.createdAt,
+    super.isGlobal = false,
+    super.assignedClientUids = const [],
   });
 
   factory GroupSessionModel.fromMap(String id, Map<String, dynamic> map) {
@@ -25,6 +27,8 @@ class GroupSessionModel extends GroupSession {
       durationMinutes: (map['durationMinutes'] as num?)?.toInt() ?? 60,
       description: description.isEmpty ? null : description,
       createdAt: FirestoreParsing.toDateTime(map['createdAt']),
+      isGlobal: map['isGlobal'] as bool? ?? false,
+      assignedClientUids: _clientUids(map['assignedClientUids']),
     );
   }
 
@@ -45,8 +49,18 @@ class GroupSessionModel extends GroupSession {
       'scheduledAt': Timestamp.fromDate(scheduledAt),
       'endsAt': Timestamp.fromDate(endsAt),
       'durationMinutes': durationMinutes,
+      'isGlobal': isGlobal,
+      'assignedClientUids': assignedClientUids,
       'createdAt': Timestamp.fromDate(createdAt),
       if (description != null && description!.isNotEmpty) 'description': description,
     };
   }
+}
+
+List<String> _clientUids(Object? value) {
+  if (value is! List) return const [];
+  return [
+    for (final uid in value)
+      if (uid is String && uid.trim().isNotEmpty) uid,
+  ];
 }

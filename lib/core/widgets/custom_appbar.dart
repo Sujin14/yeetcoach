@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import '../routes/app_routes.dart';
-import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -24,24 +22,20 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: AppColors.surface,
       elevation: 0,
-      title: Text(title, style: AppTheme.light.textTheme.titleLarge),
+      title: Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
       actions: [
         if (showSearchToggle && showSearchBar != null && onSearchToggle != null)
           Obx(
             () => IconButton(
-              icon: Icon(
-                showSearchBar!.value ? Icons.close : Icons.search,
-                color: AppColors.primary,
-              ),
+              icon: Icon(showSearchBar!.value ? Icons.close : Icons.search),
               onPressed: onSearchToggle,
               tooltip: 'Search',
             ),
           ),
         if (showProfileIcon)
           IconButton(
-            icon: Icon(Icons.person, color: AppColors.primary),
+            icon: const Icon(Icons.person),
             onPressed: () => Get.toNamed(AppRoutes.settings),
             tooltip: 'Profile',
           ),
