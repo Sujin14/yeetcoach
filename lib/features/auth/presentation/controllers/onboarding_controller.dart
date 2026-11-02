@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:yeetcoach/core/constants/firestore_collections.dart';
 import 'package:yeetcoach/core/routes/app_routes.dart';
-import 'package:yeetcoach/core/services/call_native_service.dart';
+import 'package:yeetcoach/core/services/launch_coordinator.dart';
 import 'package:yeetcoach/core/services/push_notification_service.dart';
 import 'package:yeetcoach/core/utils/log_debug.dart';
 import 'package:yeetcoach/core/utils/photo_picker_helper.dart';
@@ -222,8 +222,8 @@ class OnboardingController extends GetxController {
       await Get.find<PushNotificationService>().registerCoach(uid);
       // Without this, AuthMiddleware would bounce /home back to onboarding.
       Get.find<AuthController>().markOnboardingComplete();
-      CallNativeService.homeReady = true;
       Get.offAllNamed(AppRoutes.home);
+      LaunchCoordinator.instance.markHomeReady();
     } on FirebaseException catch (e) {
       logDebug('OnboardingController Firebase error: ${e.plugin}/${e.code} — ${e.message}');
       showErrorSnackbar('Setup failed. Please try again.');

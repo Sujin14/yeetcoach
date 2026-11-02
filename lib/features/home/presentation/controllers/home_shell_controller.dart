@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yeetcoach/core/routes/app_routes.dart';
 import 'package:yeetcoach/core/services/call_native_service.dart';
+import 'package:yeetcoach/core/services/launch_coordinator.dart';
 import 'package:yeetcoach/core/utils/log_debug.dart';
 import 'package:yeetcoach/features/calls/data/repositories/call_repository.dart';
 import 'package:yeetcoach/features/calls/domain/entities/incoming_ring.dart';
@@ -39,20 +40,19 @@ class HomeShellController extends GetxController {
     });
   }
 
-  /// Once per launch on Android: open call setup if incomplete or core permissions fail.
+  /// Once per launch on Android: open call setup until the coach has tapped Done.
   Future<void> _maybePromptCallSetup() async {
     if (_callSetupPromptedThisLaunch) return;
     if (kIsWeb || !Platform.isAndroid) return;
-    if (CallNativeService.launchedForCall) return;
+    if (LaunchCoordinator.instance.launchedForCall) return;
     final route = Get.currentRoute;
     if (route == AppRoutes.call || route == AppRoutes.incomingCall) return;
     _callSetupPromptedThisLaunch = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       final completed = prefs.getBool(CallNativeService.prefsCallSetupCompleted) ?? false;
-      final readiness = await CallNativeService.getCallReadiness();
-      if (completed && (readiness?.coreOk ?? false)) return;
-      if (CallNativeService.launchedForCall) return;
+      if (completed) return;
+      if (LaunchCoordinator.instance.launchedForCall) return;
       final after = Get.currentRoute;
       if (after == AppRoutes.call || after == AppRoutes.incomingCall) return;
       Get.toNamed(AppRoutes.callSetup);

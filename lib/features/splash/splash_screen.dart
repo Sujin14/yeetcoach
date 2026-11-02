@@ -4,11 +4,10 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:yeetcoach/core/routes/app_routes.dart';
-import 'package:yeetcoach/core/services/call_accept_handler.dart';
 import 'package:yeetcoach/core/services/call_native_service.dart';
+import 'package:yeetcoach/core/services/launch_coordinator.dart';
 import 'package:yeetcoach/core/theme/app_colors.dart';
 import 'package:yeetcoach/core/theme/app_spacing.dart';
-import 'package:yeetcoach/core/utils/log_debug.dart';
 
 /// The route to open once the splash animation and pause have finished.
 /// Registered in main() before runApp.
@@ -37,7 +36,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late final CurvedAnimation _logo;
   late final CurvedAnimation _title;
   late final CurvedAnimation _tagline;
-  bool _left = false;
 
   @override
   void initState() {
@@ -56,24 +54,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       parent: _controller,
       curve: const Interval(700 / 1400, 1100 / 1400, curve: Curves.easeOut),
     );
-    CallNativeService.coldStartCall.addListener(_onColdStartCall);
-    _leaveIfCallIsWaiting();
+
+    LaunchCoordinator.instance.onCallPending = _leave;
     _controller.forward().whenComplete(_continue);
-  }
-
-  void _onColdStartCall() {
-    if (CallNativeService.coldStartCall.value != null) {
-      _leave();
-    }
-  }
-
-  /// A native Accept that launched the process should not wait on the splash animation.
-  Future<void> _leaveIfCallIsWaiting() async {
-    final pending =
-        CallNativeService.coldStartCall.value ?? await CallNativeService.consumePendingAcceptedCall();
-    if (pending == null) return;
-    CallNativeService.coldStartCall.value ??= pending;
-    _leave();
+    CallNativeService.consumePendingAcceptedCall().then((call) {
+      if (call != null) LaunchCoordinator.instance.offerCall(call);
+    });
   }
 
   Future<void> _continue() async {
@@ -82,37 +68,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   void _leave() {
-    if (_left || !mounted) return;
-    _left = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _navigateAway());
-  }
-
-  /// Runs after the current frame so GetX navigation never hits a locked navigator.
-  void _navigateAway() {
-    if (!mounted) return;
     final next = Get.find<PostSplashRoute>();
-    logDebug(
-      '[YeetCall] splash leaving — coldStartCall=${CallNativeService.coldStartCall.value?.callId}',
+    LaunchCoordinator.instance.leaveSplash(
+      homeRoute: next.name,
+      signedIn: next.name == AppRoutes.home,
+      afterNavigation: next.afterNavigation,
     );
-    Get.offAllNamed(next.name);
-    CallNativeService.homeReady = true;
-
-    final pending = CallNativeService.coldStartCall.value;
-    if (next.name == AppRoutes.home && pending != null) {
-      CallNativeService.coldStartCall.value = null;
-      // Same post-frame callback as offAllNamed — no second deferral.
-      handleAcceptedCall(pending);
-      return;
-    }
-
-    // Coach isn't at home yet (login/onboarding) — drop the deferred accept.
-    CallNativeService.coldStartCall.value = null;
-    next.afterNavigation?.call();
   }
 
   @override
   void dispose() {
-    CallNativeService.coldStartCall.removeListener(_onColdStartCall);
+    if (LaunchCoordinator.instance.onCallPending == _leave) {
+      LaunchCoordinator.instance.onCallPending = null;
+    }
     _logo.dispose();
     _title.dispose();
     _tagline.dispose();

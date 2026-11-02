@@ -93,9 +93,11 @@ class _CallSetupScreenState extends State<CallSetupScreen> with WidgetsBindingOb
                   ok: readiness?.fullScreenOk ?? false,
                   onFix: () => _controller.fix('fullScreen'),
                 ),
+                const _SectionLabel('Recommended'),
                 _ReadinessRow(
                   label: 'Unrestricted battery',
                   ok: readiness?.batteryOk ?? false,
+                  recommended: true,
                   onFix: () => _controller.fix('battery'),
                 ),
                 if (readiness?.needsOemSetup == true) ...[
@@ -262,14 +264,31 @@ class _ReadinessRow extends StatelessWidget {
   final bool ok;
   final VoidCallback onFix;
 
+  /// Soft styling when not OK (info icon) instead of a warning — used for battery.
+  final bool recommended;
+
   const _ReadinessRow({
     required this.label,
     required this.ok,
     required this.onFix,
+    this.recommended = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final IconData icon;
+    final Color iconColor;
+    if (ok) {
+      icon = Icons.check_circle;
+      iconColor = AppColors.success;
+    } else if (recommended) {
+      icon = Icons.info_outline;
+      iconColor = AppColors.subtle;
+    } else {
+      icon = Icons.warning_amber_rounded;
+      iconColor = AppColors.secondary;
+    }
+
     return Card(
       elevation: 1,
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -284,10 +303,7 @@ class _ReadinessRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              ok ? Icons.check_circle : Icons.warning_amber_rounded,
-              color: ok ? AppColors.success : AppColors.secondary,
-            ),
+            Icon(icon, color: iconColor),
             const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Text(

@@ -2,13 +2,19 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yeetcoach/core/routes/app_routes.dart';
 import 'package:yeetcoach/core/services/call_native_service.dart';
+import 'package:yeetcoach/core/services/launch_coordinator.dart';
 import 'package:yeetcoach/core/utils/log_debug.dart';
 import 'package:yeetcoach/features/calls/domain/entities/call_party.dart';
 import 'package:yeetcoach/features/calls/domain/entities/call_type.dart';
 
-/// Opens the Flutter call screen after the coach accepts on the native UI.
+/// Hands every native accept to [LaunchCoordinator] (warm or cold start).
 Future<void> handleAcceptedCall(AcceptedCall call) async {
-  logDebug('[YeetCall] handleAcceptedCall: ${call.callId}');
+  LaunchCoordinator.instance.offerCall(call);
+}
+
+/// Opens the Flutter call screen after the coach accepts on the native UI.
+Future<void> openAcceptedCall(AcceptedCall call) async {
+  logDebug('[YeetCall] openAcceptedCall: ${call.callId}');
   if (call.callId.startsWith('test_')) {
     await CallNativeService.clearLockScreenFlags();
     final prefs = await SharedPreferences.getInstance();
@@ -21,19 +27,8 @@ Future<void> handleAcceptedCall(AcceptedCall call) async {
     return;
   }
 
-  if (!CallNativeService.homeReady) {
-    CallNativeService.launchedForCall = true;
-    CallNativeService.coldStartCall.value = call;
-    logDebug(
-      '[YeetCall] handleAcceptedCall: splash still showing — handing off ${call.callId}',
-    );
-    return;
-  }
-
-  CallNativeService.launchedForCall = true;
-
   if (Get.currentRoute == AppRoutes.call || Get.currentRoute == AppRoutes.incomingCall) {
-    logDebug('[YeetCall] handleAcceptedCall: already in a call — ignoring ${call.callId}');
+    logDebug('[YeetCall] openAcceptedCall: already in a call — ignoring ${call.callId}');
     await CallNativeService.clearLockScreenFlags();
     return;
   }

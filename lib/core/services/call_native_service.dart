@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:yeetcoach/core/utils/log_debug.dart';
 
@@ -35,8 +34,7 @@ class CallReadiness {
     );
   }
 
-  bool get coreOk =>
-      notificationsEnabled && channelOk && fullScreenOk && batteryOk;
+  bool get coreOk => notificationsEnabled && channelOk && fullScreenOk;
 }
 
 /// Payload from a native Accept (warm or cold start).
@@ -73,15 +71,6 @@ class CallNativeService {
 
   static const String prefsCallSetupCompleted = 'call_setup_completed';
   static const String prefsCallSetupTestPassed = 'call_setup_test_passed';
-
-  /// Set when a cold-start accept is consumed, or whenever [handleAcceptedCall] runs.
-  static bool launchedForCall = false;
-
-  /// True after splash (or login/onboarding) has navigated to a lasting route.
-  static bool homeReady = false;
-
-  /// Accept that arrived while splash was still showing; drained when splash leaves.
-  static final ValueNotifier<AcceptedCall?> coldStartCall = ValueNotifier(null);
 
   static Future<AcceptedCall?> consumePendingAcceptedCall() async {
     try {
