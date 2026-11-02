@@ -3,10 +3,13 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'core/navigation/app_page_route.dart';
 import 'core/routes/app_routes.dart';
+import 'core/services/call_accept_handler.dart';
+import 'core/services/call_native_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/datasources/email_auth_service.dart';
@@ -23,11 +26,13 @@ void main() async {
   final widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   GoogleFonts.config.allowRuntimeFetching = false;
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   final authRepository = AuthRepositoryImpl(EmailAuthService());
   final coachRepository = CoachRepository();
   final pushNotifications = Get.put(PushNotificationService(coachRepository), permanent: true);
   await pushNotifications.init();
+  CallNativeService.setOnCallAccepted(handleAcceptedCall);
   final initialRoute = await _resolveInitialRoute(authRepository, coachRepository);
 
   Get.put<AuthController>(AuthController(authRepository, coachRepository, pushNotifications));
@@ -39,12 +44,13 @@ void main() async {
   // Splash plays first, then continues to the route resolved above.
   // A notification tap only routes for a coach who is already past login and onboarding,
   // and only after splash has left, so it isn't wiped by offAllNamed.
+  // Cold-start call accepts are handled in splash (skip animation) and never use afterNavigation.
   Get.put(
     PostSplashRoute(
       initialRoute,
-      afterNavigation: startsAtHome
-          ? () => widgetsBinding.addPostFrameCallback((_) => pushNotifications.handleLaunchTap())
-          : null,
+      afterNavigation: () => widgetsBinding.addPostFrameCallback((_) async {
+            if (startsAtHome) await pushNotifications.handleLaunchTap();
+          }),
     ),
     permanent: true,
   );

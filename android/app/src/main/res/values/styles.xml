@@ -21,4 +21,9 @@
     </style>
     <!-- image_cropper: opt out of edge-to-edge, which breaks the crop screen on Android 15. -->
     <style name="Ucrop.CropTheme" parent="Theme.AppCompat.Light.NoActionBar"/>
+
+    <style name="IncomingCallTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#121212</item>
+        <item name="android:statusBarColor">#121212</item>
+    </style>
 </resources>

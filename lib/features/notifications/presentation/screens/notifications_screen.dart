@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:yeetcoach/core/routes/app_routes.dart';
 import '../controllers/notifications_controller.dart';
 import '../../domain/entities/coach_notification.dart';
 import '../widgets/notification_card.dart';
@@ -158,9 +159,35 @@ class _NotificationsScreenState extends State<NotificationsScreen>
         final ctrl = _getCtrl(n.id);
         // Reset if the card reappears after a cancelled clear.
         if (ctrl.value > 0) ctrl.reset();
-        return NotificationCard(notif: n, animation: ctrl);
+        return GestureDetector(
+          onTap: () => _open(n),
+          child: NotificationCard(notif: n, animation: ctrl),
+        );
       },
     );
+  }
+
+  void _open(CoachNotification notification) {
+    switch (notification.type) {
+      case NotificationType.request:
+        Get.toNamed(AppRoutes.requests);
+        break;
+      case NotificationType.message:
+        final clientUid = notification.clientUid;
+        if (clientUid != null && clientUid.isNotEmpty) {
+          Get.toNamed(AppRoutes.chat, arguments: {'clientUid': clientUid});
+        }
+        break;
+      case NotificationType.missedCall:
+        final clientUid = notification.clientUid;
+        if (clientUid != null && clientUid.isNotEmpty) {
+          Get.toNamed(AppRoutes.clientDetails, arguments: {'uid': clientUid});
+        }
+        break;
+      case NotificationType.progress:
+      case NotificationType.session:
+        break;
+    }
   }
 
   Widget _buildEmpty() {

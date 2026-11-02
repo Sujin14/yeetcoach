@@ -3,16 +3,27 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:yeetcoach/core/constants/preference_keys.dart';
 import 'package:yeetcoach/core/routes/app_routes.dart';
 import 'package:yeetcoach/core/utils/log_debug.dart';
-import 'package:yeetcoach/features/calls/domain/entities/call_party.dart';
-import 'package:yeetcoach/features/calls/domain/entities/call_type.dart';
 import 'package:yeetcoach/features/coach/domain/repositories/i_coach_repository.dart';
+import 'package:yeetcoach/firebase_options.dart';
+
+/// Incoming / cancelled calls are handled natively. Registered from main().
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  final type = message.data['type'];
+  if (type == 'incoming_call' || type == 'call_cancelled') return;
+}
+
 /// FCM registration, foreground display and notification-tap routing for coaches.
 class PushNotificationService extends GetxService {
   PushNotificationService(
@@ -55,9 +66,9 @@ class PushNotificationService extends GetxService {
         ),
         onDidReceiveNotificationResponse: (response) => _openFromPayload(response.payload),
       );
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(_channel);
+      final android = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await android?.createNotificationChannel(_channel);
     } catch (e) {
       logDebug('PushNotificationService: local notifications init failed: $e');
     }
@@ -67,9 +78,9 @@ class PushNotificationService extends GetxService {
     _openedSubscription = FirebaseMessaging.onMessageOpenedApp.listen((message) => _openFromData(message.data));
   }
 
-  /// Asks for notification permission, then stores this device's Firebase
-  /// Installation ID on coaches/{uid}.fcmToken in the background. Only the
-  /// permission prompt is awaited. Never throws.
+  /// Asks for notification permission, then stores this device's FCM
+  /// registration token on coaches/{uid}.fcmToken. Cloud Functions send to
+  /// that field with `messaging.send({token})`. Never throws.
   /// With both Settings toggles off, any stored token is removed instead.
   Future<void> registerCoach(String uid) async {
     try {
@@ -83,8 +94,8 @@ class PushNotificationService extends GetxService {
         unawaited(_removeStoredToken(uid));
         return;
       }
-      unawaited(_storeCurrentRegistration(uid));
-      _listenForRegistration();
+      await _storeRegistrationToken(uid);
+      _listenForTokenRefresh();
     } catch (e) {
       logDebug('PushNotificationService: registerCoach failed: $e');
     }
@@ -131,18 +142,37 @@ class PushNotificationService extends GetxService {
     await _tokenRefreshSubscription?.cancel();
     _tokenRefreshSubscription = null;
     try {
-      await _messaging.unregister();
+      // ignore: deprecated_member_use
+      await _messaging.deleteToken();
     } catch (e) {
-      logDebug('PushNotificationService: unregister failed: $e');
+      logDebug('PushNotificationService: deleteToken failed: $e');
     }
     await _removeStoredToken(uid);
   }
 
-  void _listenForRegistration() {
-    _tokenRefreshSubscription ??= _messaging.onRegistered.listen((installationId) async {
+  /// [getToken] and [onTokenRefresh] are the registration token Cloud Functions
+  /// still send to. [register] only emits a Firebase Installation ID, which
+  /// `messaging.send({token})` rejects.
+  Future<void> _storeRegistrationToken(String uid) async {
+    try {
+      // ignore: deprecated_member_use
+      final token = await _messaging.getToken();
+      if (token == null || token.isEmpty) {
+        logDebug('PushNotificationService: FCM token not available yet for $uid');
+        return;
+      }
+      await _saveToken(uid, token);
+    } catch (e) {
+      logDebug('PushNotificationService: getToken failed for $uid: $e');
+    }
+  }
+
+  void _listenForTokenRefresh() {
+    // ignore: deprecated_member_use
+    _tokenRefreshSubscription ??= _messaging.onTokenRefresh.listen((token) async {
       final currentUid = FirebaseAuth.instance.currentUser?.uid;
-      if (currentUid != null && (await _readToggles()).anyOn) {
-        await _saveToken(currentUid, installationId);
+      if (currentUid != null && token.isNotEmpty && (await _readToggles()).anyOn) {
+        await _saveToken(currentUid, token);
       }
     });
   }
@@ -174,17 +204,6 @@ class PushNotificationService extends GetxService {
     }
   }
 
-  /// [register] does not return the id. [onRegistered] delivers the Firebase
-  /// Installation ID, which is stored on coaches/{uid}.fcmToken.
-  Future<void> _storeCurrentRegistration(String uid) async {
-    _listenForRegistration();
-    try {
-      await _messaging.register();
-    } catch (e) {
-      logDebug('PushNotificationService: register failed for $uid: $e');
-    }
-  }
-
   Future<void> _saveToken(String uid, String token) async {
     try {
       await _coachRepository.updateCoachFields(uid, {'fcmToken': token});
@@ -212,18 +231,17 @@ class PushNotificationService extends GetxService {
 
   /// Background pushes are displayed by the OS, so the per-type toggles only filter here.
   Future<void> _showForegroundNotification(RemoteMessage message) async {
+    final type = message.data['type'];
+    if (type == 'incoming_call' || type == 'call_cancelled') return;
     final title = message.notification?.title ?? message.data['title']?.toString();
     final body = message.notification?.body ?? message.data['body']?.toString();
     if (title == null && body == null) return;
     if (_isOpenChat(message.data)) return;
-    final callTag = _incomingCallTag(message.data);
     final toggles = await _readToggles();
-    if (!(callTag != null ? toggles.calls : toggles.general)) return;
+    if (!toggles.general) return;
     try {
       await _localNotifications.show(
-        // Calls use id 0 + tag, like the tray notification FCM posts in the background,
-        // so _dismissCallNotification clears either one.
-        id: callTag != null ? 0 : (message.messageId ?? '${message.sentTime}').hashCode,
+        id: (message.messageId ?? '${message.sentTime}').hashCode,
         title: title,
         body: body,
         notificationDetails: NotificationDetails(
@@ -233,7 +251,6 @@ class PushNotificationService extends GetxService {
             channelDescription: _channel.description,
             importance: Importance.high,
             priority: Priority.high,
-            tag: callTag,
           ),
           iOS: const DarwinNotificationDetails(),
         ),
@@ -260,7 +277,7 @@ class PushNotificationService extends GetxService {
     logDebug('PushNotificationService: notification tapped, type: $type');
     switch (type) {
       case 'new_request':
-        Get.toNamed(AppRoutes.notifications);
+        Get.toNamed(AppRoutes.requests);
       case 'new_message':
         // Sent by the onMessageCreated Cloud Function; the sender is the client.
         final clientUid = data['senderId'];
@@ -269,51 +286,6 @@ class PushNotificationService extends GetxService {
         } else {
           _goHome();
         }
-      case 'incoming_call':
-        // Sent by the onCallCreated Cloud Function when a client calls the coach.
-        _openIncomingCall(data);
-    }
-  }
-
-  void _openIncomingCall(Map<String, dynamic> data) {
-    final callId = data['callId'];
-    final callerId = data['callerId'];
-    if (callId is! String || callId.isEmpty || callerId is! String || callerId.isEmpty) {
-      logDebug('PushNotificationService: incoming_call push without callId or callerId');
-      return;
-    }
-    if (Get.currentRoute == AppRoutes.call || Get.currentRoute == AppRoutes.incomingCall) {
-      logDebug('PushNotificationService: ignoring call $callId, already in a call');
-      return;
-    }
-    unawaited(_dismissCallNotification(callId));
-    final callerName = data['callerName'];
-    final callerPhotoUrl = data['callerPhotoUrl'];
-    // A stale tap (call already missed or ended) is closed by the call screen itself.
-    Get.toNamed(AppRoutes.incomingCall, arguments: {
-      'callId': callId,
-      'type': CallType.values.asNameMap()[data['callType']] ?? CallType.audio,
-      'party': CallParty(
-        uid: callerId,
-        name: callerName is String && callerName.isNotEmpty ? callerName : 'Client',
-        photoUrl: callerPhotoUrl is String ? callerPhotoUrl : '',
-      ),
-    });
-  }
-
-  /// Matches the Android tag onCallCreated puts on the call push.
-  static String? _incomingCallTag(Map<String, dynamic> data) {
-    final callId = data['callId'];
-    return data['type'] == 'incoming_call' && callId is String && callId.isNotEmpty
-        ? 'call_$callId'
-        : null;
-  }
-
-  Future<void> _dismissCallNotification(String callId) async {
-    try {
-      await _localNotifications.cancel(id: 0, tag: 'call_$callId');
-    } catch (e) {
-      logDebug('PushNotificationService: dismissing call notification failed: $e');
     }
   }
 

@@ -1,8 +1,10 @@
 import 'package:get/get.dart';
 import '../../features/auth/presentation/bindings/onboarding_binding.dart';
 import '../../features/calls/presentation/bindings/call_binding.dart';
+import '../../features/calls/presentation/bindings/call_setup_binding.dart';
 import '../../features/calls/presentation/bindings/incoming_call_binding.dart';
 import '../../features/calls/presentation/screens/call_screen.dart';
+import '../../features/calls/presentation/screens/call_setup_screen.dart';
 import '../../features/calls/presentation/screens/incoming_call_screen.dart';
 import '../../features/challenges/presentation/bindings/challenge_detail_binding.dart';
 import '../../features/challenges/presentation/screens/challenge_detail_screen.dart';
@@ -19,6 +21,7 @@ import '../../features/clients/presentation/screens/client_detail_screen.dart';
 import '../../features/home/presentation/bindings/home_shell_binding.dart';
 import '../../features/home/presentation/screens/all_clients_screen.dart';
 import '../../features/home/presentation/screens/home_shell_screen.dart';
+import '../../features/home/presentation/screens/requests_screen.dart';
 import '../../features/notifications/presentation/bindings/notifications_binding.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/plan/domain/entities/plan_type.dart';
@@ -45,12 +48,14 @@ class AppRoutes {
   static const terms = '/settings/terms';
   static const home = '/home';
   static const notifications = '/home/notifications';
+  static const requests = '/home/requests';
   static const clients = '/home/clients';
   static const clientDetails = '/home/client-details';
   static const planList = '/home/plan-list';
   static const planForm = '/home/plan-form';
   static const call = '/home/call';
   static const incomingCall = '/home/incoming-call';
+  static const callSetup = '/home/call-setup';
   static const chats = '/home/chats';
   static const chat = '/home/chat';
   static const challengeDetails = '/home/challenge-details';
@@ -109,6 +114,11 @@ class AppRoutes {
       middlewares: [AuthMiddleware()],
     ),
     GetPage(
+      name: requests,
+      page: () => const RequestsScreen(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
       name: clients,
       page: () => const AllClientsScreen(),
       middlewares: [AuthMiddleware()],
@@ -141,6 +151,12 @@ class AppRoutes {
       name: incomingCall,
       page: () => const IncomingCallScreen(),
       binding: IncomingCallBinding(),
+      middlewares: [AuthMiddleware()],
+    ),
+    GetPage(
+      name: callSetup,
+      page: () => const CallSetupScreen(),
+      binding: CallSetupBinding(),
       middlewares: [AuthMiddleware()],
     ),
     GetPage(

@@ -6,7 +6,8 @@ import '../controllers/call_controller.dart';
 import '../widgets/in_call_view.dart';
 import '../widgets/incoming_call_view.dart';
 
-/// A call from a client: rings with Answer / Decline, then becomes the in-call UI.
+/// A call from a client: Answer / Decline when opened without auto-answer,
+/// otherwise the in-call UI (native already accepted).
 class IncomingCallScreen extends GetView<CallController> {
   const IncomingCallScreen({super.key});
 

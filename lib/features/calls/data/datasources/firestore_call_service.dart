@@ -4,6 +4,7 @@ import '../../domain/entities/call_party.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/call_status.dart';
 import '../../domain/entities/call_type.dart';
+import '../../domain/entities/incoming_ring.dart';
 import '../models/call_session_model.dart';
 import 'call_exception.dart';
 
@@ -34,6 +35,43 @@ class FirestoreCallService {
         .doc(callId)
         .snapshots()
         .map((doc) => doc.exists ? CallSessionModel.fromSnapshot(doc) : null);
+  }
+
+  /// Caller name/photo live on the document but not on [CallSession].
+  Future<({CallSession session, CallParty caller})?> getCallForAccept(String callId) async {
+    final doc = await _calls.doc(callId).get();
+    if (!doc.exists) return null;
+    final data = doc.data() ?? const <String, dynamic>{};
+    final session = CallSessionModel.fromSnapshot(doc);
+    final callerId = session.callerId;
+    if (callerId.isEmpty) return null;
+    final callerName = data['callerName'];
+    final callerPhoto = data['callerPhoto'];
+    return (
+      session: session,
+      caller: CallParty(
+        uid: callerId,
+        name: callerName is String && callerName.isNotEmpty ? callerName : 'Client',
+        photoUrl: callerPhoto is String ? callerPhoto : '',
+      ),
+    );
+  }
+
+  /// Equality filters only, so no composite index is needed. The newest
+  /// still-ringing call is chosen here.
+  Stream<IncomingRing?> watchIncomingRing(String coachId) {
+    return _calls
+        .where('receiverId', isEqualTo: coachId)
+        .where('status', isEqualTo: CallStatus.ringing.name)
+        .snapshots()
+        .map((snapshot) {
+      final rings = [
+        for (final doc in snapshot.docs)
+          if (IncomingRing.fromSnapshot(doc, coachId: coachId) case final ring?)
+            if (ring.isStillRinging) ring,
+      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return rings.firstOrNull;
+    });
   }
 
   /// Moves the call to [next] only from one of [allowedFrom], so a hang-up racing

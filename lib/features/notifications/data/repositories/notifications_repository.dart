@@ -12,14 +12,15 @@ class NotificationsRepository {
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection('coaches').doc(_uid).collection('notifications');
 
-  /// Streams only unread notifications, newest first, up to 50.
+  /// Newest notifications first. Read state is filtered here so the query
+  /// only needs the automatic createdAt index.
   Stream<List<CoachNotification>> streamUnread() => _col
-      .where('isRead', isEqualTo: false)
       .orderBy('createdAt', descending: true)
       .limit(50)
       .snapshots()
       .map((s) => s.docs
           .map((d) => CoachNotificationModel.fromMap(d.id, d.data()))
+          .where((notification) => !notification.isRead)
           .toList());
 
   Future<void> markAllRead() async {

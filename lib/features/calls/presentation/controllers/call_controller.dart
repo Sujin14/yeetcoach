@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:get/get.dart';
 import 'package:yeetcoach/core/routes/app_routes.dart';
+import 'package:yeetcoach/core/services/call_native_service.dart';
 import 'package:yeetcoach/core/utils/log_debug.dart';
 import '../../data/datasources/call_exception.dart';
 import '../../data/datasources/call_media_session.dart';
@@ -33,6 +34,7 @@ class CallController extends GetxController {
   late final String callId;
   late final CallType type;
   late final CallParty party;
+  bool autoAnswer = false;
 
   final RTCVideoRenderer localRenderer = RTCVideoRenderer();
   final RTCVideoRenderer remoteRenderer = RTCVideoRenderer();
@@ -70,6 +72,10 @@ class CallController extends GetxController {
       callId = id;
       type = callType;
       party = callParty;
+      autoAnswer = args['autoAnswer'] == true;
+      if (args['channelId'] case final String channel when channel.isNotEmpty) {
+        _channelId = channel;
+      }
     } else {
       logDebug('CallController: invalid arguments: $args');
       callId = '';
@@ -94,6 +100,12 @@ class CallController extends GetxController {
         },
       ),
     );
+    // Native Accept already happened — skip IncomingCallView and join media.
+    if (isIncoming && autoAnswer) {
+      logDebug('[YeetCall] autoAnswer start callId=$callId channel=$_channelId');
+      phase.value = CallPhase.connecting;
+      unawaited(answer());
+    }
   }
 
   void _onCallChanged(CallSession? call) {
@@ -139,6 +151,7 @@ class CallController extends GetxController {
       final local = await _media.start(apiKey: apiKey, channelId: channelId, video: isVideo);
       if (_leaving) return false;
       if (isVideo) localRenderer.srcObject = local;
+      logDebug('[YeetCall] media started channel=$channelId');
       return true;
     } catch (e) {
       logDebug('CallController: joining the call failed: $e');
@@ -158,15 +171,33 @@ class CallController extends GetxController {
     isAnswering.value = true;
     _ringTimer?.cancel();
     try {
-      if (!await _startMedia(_channelId ?? callId)) return;
+      if (_channelId == null || _channelId!.isEmpty) {
+        final details = await _repository.getCallForAccept(callId);
+        final fetched = details?.session.channelId;
+        if (fetched != null && fetched.isNotEmpty) {
+          _channelId = fetched;
+        }
+      }
+      if (_channelId == null || _channelId!.isEmpty) {
+        logDebug('CallController: no channelId for $callId — aborting answer');
+        _finish("Couldn't connect");
+        return;
+      }
+      if (!await _startMedia(_channelId!)) return;
       await _repository.acceptCall(callId);
+      logDebug('[YeetCall] acceptCall done');
       if (_leaving) return;
       phase.value = hasRemoteStream.value ? CallPhase.connected : CallPhase.connecting;
     } catch (e) {
       logDebug('CallController: answering the call failed: $e');
       if (_leaving) return;
-      if (e is! CallException) _endCallInBackground();
-      _finish(e is CallException ? e.message : 'Could not answer the call');
+      if (e is CallException) {
+        // acceptCall only succeeds from ringing; otherwise the call already ended.
+        _finish('Call already ended');
+        return;
+      }
+      _endCallInBackground();
+      _finish('Could not answer the call');
     } finally {
       isAnswering.value = false;
     }
@@ -273,7 +304,14 @@ class CallController extends GetxController {
 
   /// popUntil rather than Get.back, which closes an open snackbar instead of the route.
   void _closeScreen() {
+    _releaseNativeCall();
     Get.until((route) => route.settings.name != _routeName);
+  }
+
+  void _releaseNativeCall() {
+    if (!isIncoming || callId.isEmpty) return;
+    unawaited(CallNativeService.dismissIncomingCall(callId));
+    unawaited(CallNativeService.clearLockScreenFlags());
   }
 
   @override
@@ -281,6 +319,7 @@ class CallController extends GetxController {
     // Removed without hanging up (e.g. a notification tap reset the stack).
     if (!_leaving) {
       _leaving = true;
+      _releaseNativeCall();
       if (phase.value == CallPhase.incoming && !_mediaStarted) {
         _declineCallInBackground();
       } else {

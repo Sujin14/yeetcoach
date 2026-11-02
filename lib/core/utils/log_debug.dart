@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-/// Debug-only logging. Stripped from release builds by Dart's assert mechanism.
+/// Debug-only logging. No-ops in release; uses [debugPrint] so messages reach logcat.
 void logDebug(String message) {
-  assert(() {
+  if (kDebugMode) {
     debugPrint(message);
-    return true;
-  }());
+  }
 }

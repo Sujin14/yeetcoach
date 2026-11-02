@@ -41,14 +41,10 @@ class AccountSection extends GetView<SettingsController> {
               ),
             )),
         SettingsTile(
-          icon: Icons.privacy_tip_outlined,
-          title: 'Privacy Policy',
-          onTap: () => Get.toNamed(AppRoutes.privacyPolicy),
-        ),
-        SettingsTile(
-          icon: Icons.description_outlined,
-          title: 'Terms & Conditions',
-          onTap: () => Get.toNamed(AppRoutes.terms),
+          icon: Icons.phonelink_setup_outlined,
+          title: 'Call settings',
+          subtitle: 'Permissions and lock-screen test',
+          onTap: () => Get.toNamed(AppRoutes.callSetup),
         ),
       ],
     );

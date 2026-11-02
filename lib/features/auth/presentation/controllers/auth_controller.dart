@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import '../../../../core/routes/app_routes.dart';
+import '../../../../core/services/call_native_service.dart';
 import '../../../../core/services/push_notification_service.dart';
 import '../../../../core/utils/form_validators.dart';
 import '../../../coach/domain/repositories/i_coach_repository.dart';
@@ -17,6 +18,9 @@ class AuthController extends GetxController {
   final LoginWithEmail loginWithEmail;
   final SignUpWithEmail signUpWithEmail;
   final isLoading = false.obs;
+
+  /// UI gate on the sign-up form. Not written to Firestore.
+  final RxBool agreedToTerms = false.obs;
 
   /// null = coach profile check not run yet, true = profile exists, false = profile missing.
   final Rx<bool?> isOnboardingComplete = Rx<bool?>(null);
@@ -163,6 +167,7 @@ class AuthController extends GetxController {
     // fcmToken is stored on coaches/{uid}, so registration waits until the profile exists.
     if (hasCoachProfile) await _pushNotifications.registerCoach(uid);
     isOnboardingComplete.value = hasCoachProfile;
+    if (hasCoachProfile) CallNativeService.homeReady = true;
     Get.offAllNamed(hasCoachProfile ? AppRoutes.home : AppRoutes.onboarding);
   }
 

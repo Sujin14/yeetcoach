@@ -4,9 +4,9 @@ import 'package:yeetcoach/core/routes/app_routes.dart';
 import 'package:yeetcoach/core/theme/app_colors.dart';
 import 'package:yeetcoach/core/theme/app_spacing.dart';
 import 'package:yeetcoach/core/widgets/staggered_entrance.dart';
+import 'package:yeetcoach/features/notifications/presentation/controllers/notifications_controller.dart';
 import '../controllers/coach_dashboard_controller.dart';
 import '../widgets/client_activity_section.dart';
-import '../widgets/compact_requests_section.dart';
 import '../widgets/dashboard_toolbar.dart';
 import '../widgets/greeting_header.dart';
 import '../widgets/group_sessions_section.dart';
@@ -19,15 +19,16 @@ class CoachDashboardScreen extends GetView<CoachDashboardController> {
 
   @override
   Widget build(BuildContext context) {
-    final dashboard = Get.find<CoachDashboardController>();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: DashboardToolbar(
         actions: [
           Obx(() {
-            final count = dashboard.pendingRequests.length;
+            final count = Get.isRegistered<NotificationsController>()
+                ? Get.find<NotificationsController>().notifications.length
+                : 0;
             return IconButton(
-              tooltip: 'Requests',
+              tooltip: 'Notifications',
               icon: Badge(
                 isLabelVisible: count > 0,
                 backgroundColor: AppColors.error,
@@ -51,7 +52,6 @@ class CoachDashboardScreen extends GetView<CoachDashboardController> {
             QuickStatsRow(),
             TodaysClientsSection(),
             GroupSessionsSection(),
-            CompactRequestsSection(),
             ClientActivitySection(),
             StaggeredEntrance(index: 7, child: MotivationCard()),
           ],

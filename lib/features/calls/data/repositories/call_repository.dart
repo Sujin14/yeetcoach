@@ -2,6 +2,7 @@ import '../../domain/entities/call_party.dart';
 import '../../domain/entities/call_session.dart';
 import '../../domain/entities/call_status.dart';
 import '../../domain/entities/call_type.dart';
+import '../../domain/entities/incoming_ring.dart';
 import '../../domain/repositories/i_call_repository.dart';
 import '../datasources/firestore_call_service.dart';
 import '../datasources/metered_config_service.dart';
@@ -24,6 +25,14 @@ class CallRepository implements ICallRepository {
 
   @override
   Stream<CallSession?> watchCall(String callId) => _callService.watchCall(callId);
+
+  @override
+  Future<({CallSession session, CallParty caller})?> getCallForAccept(String callId) =>
+      _callService.getCallForAccept(callId);
+
+  @override
+  Stream<IncomingRing?> watchIncomingRing(String coachId) =>
+      _callService.watchIncomingRing(coachId);
 
   @override
   Future<void> acceptCall(String callId) => _callService.transition(

@@ -42,7 +42,7 @@ class QuickStatsRow extends GetView<CoachDashboardController> {
                   emoji: '⏳',
                   value: controller.pendingRequests.length,
                   label: 'Requests',
-                  onTap: () => Get.toNamed(AppRoutes.notifications),
+                  onTap: () => Get.toNamed(AppRoutes.requests),
                 ),
               ),
             ),

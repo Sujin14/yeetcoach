@@ -6,6 +6,7 @@ import '../controllers/settings_controller.dart';
 import '../widgets/about_section.dart';
 import '../widgets/account_section.dart';
 import '../widgets/danger_zone.dart';
+import '../widgets/legal_section.dart';
 import '../widgets/profile_card.dart';
 
 class SettingsScreen extends GetView<SettingsController> {
@@ -35,6 +36,7 @@ class SettingsScreen extends GetView<SettingsController> {
           children: const [
             ProfileCard(),
             AccountSection(),
+            LegalSection(),
             AboutSection(),
             DangerZone(),
           ],
