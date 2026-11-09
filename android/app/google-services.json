@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "866289640315-esh03eqsv2fh8lalnjhmdgqrmts3qkcg.apps.googleusercontent.com",
+          "client_id": "866289640315-gp1bicqpubh5mkd681613q951m0nssgc.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.sujin.yeetcoach",
-            "certificate_hash": "92913095fd454dc9f1c44a6e6d74399f67c0c913"
+            "certificate_hash": "34d7db806f9a677a21e382574924e0fa00c51ff0"
           }
         },
         {
@@ -61,11 +61,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "866289640315-b89hjpt5gjtbiu906l1he83hef3gvktc.apps.googleusercontent.com",
+          "client_id": "866289640315-cf84rmurmm85kil9aepmk4pneol6uom0.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.sujin.yeetfit",
-            "certificate_hash": "92913095fd454dc9f1c44a6e6d74399f67c0c913"
+            "certificate_hash": "781810f23d95e81f0d64401e53a3cbc94b837beb"
           }
         },
         {

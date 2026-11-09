@@ -11,13 +11,21 @@ import '../../domain/usecases/sign_up_with_email.dart';
 import 'package:yeetcoach/core/utils/log_debug.dart';
 import 'package:yeetcoach/core/utils/snackbar_helper.dart';
 
+/// Which auth control is currently busy — only that button shimmers.
+enum AuthLoadingAction { none, email, google }
+
 class AuthController extends GetxController {
   final AuthRepository _repository;
   final ICoachRepository _coachRepository;
   final PushNotificationService _pushNotifications;
   final LoginWithEmail loginWithEmail;
   final SignUpWithEmail signUpWithEmail;
-  final isLoading = false.obs;
+  final Rx<AuthLoadingAction> loadingAction = AuthLoadingAction.none.obs;
+
+  bool get isLoading => loadingAction.value != AuthLoadingAction.none;
+  bool get isBusy => isLoading;
+  bool get isEmailLoading => loadingAction.value == AuthLoadingAction.email;
+  bool get isGoogleLoading => loadingAction.value == AuthLoadingAction.google;
 
   /// UI gate on the sign-up form. Not written to Firestore.
   final RxBool agreedToTerms = false.obs;
@@ -42,7 +50,7 @@ class AuthController extends GetxController {
       showErrorSnackbar(emailError ?? passwordError!, position: SnackPosition.TOP);
       return;
     }
-    isLoading.value = true;
+    loadingAction.value = AuthLoadingAction.email;
     try {
       final uid = await loginWithEmail(email, password);
       if (uid == null) {
@@ -51,12 +59,12 @@ class AuthController extends GetxController {
       }
       await _routeAfterAuth(uid);
     } finally {
-      isLoading.value = false;
+      loadingAction.value = AuthLoadingAction.none;
     }
   }
 
   Future<void> loginWithGoogle() async {
-    isLoading.value = true;
+    loadingAction.value = AuthLoadingAction.google;
     try {
       final user = await _repository.loginWithGoogle();
       if (user == null) return; // User cancelled the picker
@@ -66,7 +74,7 @@ class AuthController extends GetxController {
       await _signOutAfterFailure();
       showErrorSnackbar('Google login failed. Please try again.', position: SnackPosition.TOP);
     } finally {
-      isLoading.value = false;
+      loadingAction.value = AuthLoadingAction.none;
     }
   }
 
@@ -85,7 +93,7 @@ class AuthController extends GetxController {
       return;
     }
 
-    isLoading.value = true;
+    loadingAction.value = AuthLoadingAction.email;
     try {
       final uid = await signUpWithEmail(email, password, name);
       if (uid == null) {
@@ -94,7 +102,7 @@ class AuthController extends GetxController {
       }
       await _routeAfterAuth(uid);
     } finally {
-      isLoading.value = false;
+      loadingAction.value = AuthLoadingAction.none;
     }
   }
 
@@ -126,7 +134,7 @@ class AuthController extends GetxController {
   void markOnboardingComplete() => isOnboardingComplete.value = true;
 
   Future<bool> logout() async {
-    isLoading.value = true;
+    loadingAction.value = AuthLoadingAction.email;
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) await _pushNotifications.clearToken(uid);
@@ -138,7 +146,7 @@ class AuthController extends GetxController {
       showErrorSnackbar('Failed to log out: $e', position: SnackPosition.TOP);
       return false;
     } finally {
-      isLoading.value = false;
+      loadingAction.value = AuthLoadingAction.none;
     }
   }
 

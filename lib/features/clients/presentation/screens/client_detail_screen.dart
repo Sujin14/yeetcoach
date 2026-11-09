@@ -97,7 +97,7 @@ class ClientDetailScreen extends GetView<ClientDetailController> {
                   ],
                 ),
               ),
-              const ClientSection(title: 'Weekly Recovery', child: WeeklyRecoveryChart()),
+              const ClientSection(title: 'Recovery', child: WeeklyRecoveryChart()),
               const ClientSection(title: 'Notes', child: CoachNotesCard()),
             ],
           ),

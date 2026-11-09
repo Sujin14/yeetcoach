@@ -16,8 +16,8 @@ class FirestoreChatService {
 
   static const int _messageLimit = 200;
 
-  /// Firestore batches are capped at 500 writes.
-  static const int _batchLimit = 500;
+  /// Soft-delete batches stay under Firestore's 500-write cap.
+  static const int _deleteBatchLimit = 450;
 
   static final List<String> _unreadStatuses = MessageStatus.values
       .where((status) => status.isUnread)
@@ -36,11 +36,12 @@ class FirestoreChatService {
 
   /// Sorted on the device: ordering by updatedAt in the query would drop chats
   /// started from YeetFit, which never write that field.
+  /// Chats cleared for the coach stay hidden until a newer lastMessageTime arrives.
   Stream<List<ChatThread>> watchCoachChats(String coachUid) {
     return _chats.where('participants', arrayContains: coachUid).snapshots().map((snapshot) {
       final threads = snapshot.docs
           .map((doc) => ChatThreadModel.fromSnapshot(doc, coachUid: coachUid))
-          .where((thread) => thread.clientUid.isNotEmpty)
+          .where((thread) => thread.clientUid.isNotEmpty && !thread.isClearedForViewer)
           .toList();
       final epoch = DateTime.fromMillisecondsSinceEpoch(0);
       threads.sort((a, b) => (b.lastActivityAt ?? epoch).compareTo(a.lastActivityAt ?? epoch));
@@ -48,16 +49,55 @@ class FirestoreChatService {
     });
   }
 
-  Stream<List<ChatMessage>> watchMessages(String chatId) {
-    return _messages(chatId)
+  /// [clearedAt] limits to messages after the coach cleared the chat; [uid]'s
+  /// soft-deleted messages are dropped client-side.
+  Stream<List<ChatMessage>> watchMessages(String chatId, String uid, {DateTime? clearedAt}) {
+    Query<Map<String, dynamic>> query = _messages(chatId);
+    if (clearedAt != null) {
+      query = query.where('timestamp', isGreaterThan: Timestamp.fromDate(clearedAt));
+    }
+    return query
         .orderBy('timestamp', descending: true)
         .limit(_messageLimit)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map(ChatMessageModel.fromSnapshot).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map(ChatMessageModel.fromSnapshot)
+              .where((message) => !message.deletedFor.contains(uid))
+              .toList(),
+        );
   }
 
-  Stream<int> watchUnreadCount(String chatId, String senderUid) {
-    return _unreadFrom(chatId, senderUid).snapshots().map((snapshot) => snapshot.size);
+  /// Live [clearedAt] for [uid] on the chat doc; emits null when unset or missing.
+  Stream<DateTime?> watchClearedAt(String chatId, String uid) {
+    return _chats.doc(chatId).snapshots().map((snapshot) {
+      final clearedAt = snapshot.data()?['clearedAt'];
+      if (clearedAt is! Map) return null;
+      return (clearedAt[uid] as Timestamp?)?.toDate();
+    });
+  }
+
+  /// Unread from [senderUid], excluding soft-deleted / cleared messages for [viewerUid].
+  Stream<int> watchUnreadCount(String chatId, String senderUid, String viewerUid) {
+    return _chats.doc(chatId).snapshots().asyncExpand((chatSnap) {
+      final clearedAtRaw = chatSnap.data()?['clearedAt'];
+      DateTime? clearedAt;
+      if (clearedAtRaw is Map) {
+        clearedAt = (clearedAtRaw[viewerUid] as Timestamp?)?.toDate();
+      }
+      return _unreadFrom(chatId, senderUid).snapshots().map((snapshot) {
+        return snapshot.docs.where((doc) {
+          final data = doc.data();
+          final deletedFor =
+              (data['deletedFor'] as List?)?.whereType<String>() ?? const Iterable<String>.empty();
+          if (deletedFor.contains(viewerUid)) return false;
+          if (clearedAt == null) return true;
+          final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+          if (timestamp == null) return true;
+          return timestamp.isAfter(clearedAt);
+        }).length;
+      });
+    });
   }
 
   Future<ChatParticipant?> getParticipant(String uid) async {
@@ -102,28 +142,36 @@ class FirestoreChatService {
     await batch.commit();
   }
 
-  /// Removes every message, then the chat document, matching YeetFit's delete.
-  Future<void> deleteChat(String chatId) async {
+  /// Soft-deletes [messageIds] for [uid] only (chunks of [_deleteBatchLimit]).
+  Future<void> deleteMessagesForMe(String chatId, List<String> messageIds, String uid) async {
     final messages = _messages(chatId);
-    while (true) {
-      final snapshot = await messages.limit(_batchLimit).get();
-      if (snapshot.docs.isEmpty) break;
+    for (var start = 0; start < messageIds.length; start += _deleteBatchLimit) {
       final batch = _firestore.batch();
-      for (final doc in snapshot.docs) {
-        batch.delete(doc.reference);
+      for (final id in messageIds.skip(start).take(_deleteBatchLimit)) {
+        batch.update(messages.doc(id), {
+          'deletedFor': FieldValue.arrayUnion([uid]),
+        });
       }
       await batch.commit();
-      if (snapshot.docs.length < _batchLimit) break;
     }
-    await _chats.doc(chatId).delete();
+  }
+
+  /// Hides the chat for [uid] without removing messages or the chat document.
+  Future<void> clearChatForMe(String chatId, String uid) async {
+    await _chats.doc(chatId).set(
+      {
+        'clearedAt': {uid: FieldValue.serverTimestamp()},
+      },
+      SetOptions(merge: true),
+    );
   }
 
   Future<void> markAsRead(String chatId, String senderUid) async {
     final snapshot = await _unreadFrom(chatId, senderUid).get();
     final docs = snapshot.docs;
-    for (var start = 0; start < docs.length; start += _batchLimit) {
+    for (var start = 0; start < docs.length; start += _deleteBatchLimit) {
       final batch = _firestore.batch();
-      for (final doc in docs.skip(start).take(_batchLimit)) {
+      for (final doc in docs.skip(start).take(_deleteBatchLimit)) {
         batch.update(doc.reference, {'status': MessageStatus.read.name});
       }
       await batch.commit();

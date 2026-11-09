@@ -1,3 +1,14 @@
+/// Mon–Sun short labels for Monday-start grids and charts.
+const List<String> shortWeekdayLabels = [
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+  'Sun',
+];
+
 /// Whether a free-text day label written by a coach ("Monday", "Mon / Thu",
 /// "Day 1 - Tuesday") refers to [weekday] (DateTime.monday … DateTime.sunday).
 bool labelMentionsWeekday(String label, int weekday) {

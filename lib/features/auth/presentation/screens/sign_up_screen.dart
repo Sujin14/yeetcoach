@@ -14,10 +14,17 @@ class SignUpScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return AuthScaffold(
       tagline: 'Your coaching companion',
-      footer: AuthFooterLink(
-        prompt: 'Already have an account?',
-        action: 'Login',
-        onPressed: () => Get.back(),
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AuthFooterLink(
+            prompt: 'Already have an account?',
+            action: 'Login',
+            onPressed: () => Get.back(),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          const SignUpTermsAgreement(),
+        ],
       ),
       child: const Column(
         mainAxisSize: MainAxisSize.min,

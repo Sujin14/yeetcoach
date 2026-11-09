@@ -13,11 +13,16 @@ class ChatRepository implements IChatRepository {
   Stream<List<ChatThread>> watchCoachChats(String coachUid) => _service.watchCoachChats(coachUid);
 
   @override
-  Stream<List<ChatMessage>> watchMessages(String chatId) => _service.watchMessages(chatId);
+  Stream<List<ChatMessage>> watchMessages(String chatId, String uid, {DateTime? clearedAt}) =>
+      _service.watchMessages(chatId, uid, clearedAt: clearedAt);
 
   @override
-  Stream<int> watchUnreadCount(String chatId, String senderUid) =>
-      _service.watchUnreadCount(chatId, senderUid);
+  Stream<DateTime?> watchClearedAt(String chatId, String uid) =>
+      _service.watchClearedAt(chatId, uid);
+
+  @override
+  Stream<int> watchUnreadCount(String chatId, String senderUid, String viewerUid) =>
+      _service.watchUnreadCount(chatId, senderUid, viewerUid);
 
   @override
   Future<ChatParticipant?> getParticipant(String uid) => _service.getParticipant(uid);
@@ -35,5 +40,10 @@ class ChatRepository implements IChatRepository {
       _service.markAsRead(chatId, senderUid);
 
   @override
-  Future<void> deleteChat(String chatId) => _service.deleteChat(chatId);
+  Future<void> deleteMessagesForMe(String chatId, List<String> messageIds, String uid) =>
+      _service.deleteMessagesForMe(chatId, messageIds, uid);
+
+  @override
+  Future<void> clearChatForMe(String chatId, String uid) =>
+      _service.clearChatForMe(chatId, uid);
 }

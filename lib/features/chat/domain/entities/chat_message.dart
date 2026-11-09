@@ -9,6 +9,9 @@ class ChatMessage {
   final DateTime sentAt;
   final MessageStatus status;
 
+  /// Uids that soft-deleted this message for themselves. Not written on send.
+  final List<String> deletedFor;
+
   /// True until the server has accepted the write.
   final bool isPending;
 
@@ -18,6 +21,7 @@ class ChatMessage {
     required this.text,
     required this.sentAt,
     required this.status,
+    this.deletedFor = const [],
     this.isPending = false,
   });
 
@@ -27,6 +31,7 @@ class ChatMessage {
     String? text,
     DateTime? sentAt,
     MessageStatus? status,
+    List<String>? deletedFor,
     bool? isPending,
   }) {
     return ChatMessage(
@@ -35,6 +40,7 @@ class ChatMessage {
       text: text ?? this.text,
       sentAt: sentAt ?? this.sentAt,
       status: status ?? this.status,
+      deletedFor: deletedFor ?? this.deletedFor,
       isPending: isPending ?? this.isPending,
     );
   }
@@ -48,8 +54,10 @@ class ChatMessage {
           other.text == text &&
           other.sentAt == sentAt &&
           other.status == status &&
+          listEquals(other.deletedFor, deletedFor) &&
           other.isPending == isPending;
 
   @override
-  int get hashCode => Object.hash(id, senderId, text, sentAt, status, isPending);
+  int get hashCode =>
+      Object.hash(id, senderId, text, sentAt, status, Object.hashAll(deletedFor), isPending);
 }

@@ -12,8 +12,20 @@ TextTheme get _textTheme => AppTheme.light.textTheme;
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final bool isMine;
+  final bool selectionMode;
+  final bool isSelected;
+  final VoidCallback? onLongPress;
+  final VoidCallback? onTap;
 
-  const MessageBubble({super.key, required this.message, required this.isMine});
+  const MessageBubble({
+    super.key,
+    required this.message,
+    required this.isMine,
+    this.selectionMode = false,
+    this.isSelected = false,
+    this.onLongPress,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -22,10 +34,12 @@ class MessageBubble extends StatelessWidget {
     const corner = Radius.circular(16);
     const tail = Radius.circular(4);
 
-    return Align(
+    final bubble = Align(
       alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.75),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * (selectionMode ? 0.68 : 0.75),
+        ),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 3),
           padding: const EdgeInsets.fromLTRB(AppSpacing.smd, AppSpacing.sm, AppSpacing.smd, 6),
@@ -71,6 +85,35 @@ class MessageBubble extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+
+    final row = selectionMode
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: Icon(
+                  isSelected ? Icons.check_circle : Icons.circle_outlined,
+                  size: 22,
+                  color: isSelected ? AppColors.primary : AppColors.subtle,
+                ),
+              ),
+              Expanded(child: bubble),
+            ],
+          )
+        : bubble;
+
+    return Material(
+      color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
+      child: InkWell(
+        onLongPress: onLongPress,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 1),
+          child: row,
         ),
       ),
     );

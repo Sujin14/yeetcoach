@@ -3,6 +3,7 @@ import '../entities/client_recovery.dart';
 import '../entities/client_relationship_info.dart';
 import '../entities/daily_goal_metric.dart';
 import '../entities/nutrition_summary.dart';
+import '../entities/recovery_day.dart';
 import '../entities/workout_log_summary.dart';
 
 enum DailyMetric { sleep, water, steps }
@@ -19,6 +20,13 @@ class RestrictedClientDataException implements Exception {
 /// Dates are 'yyyy-MM-dd' day keys, as written by YeetFit.
 abstract class IClientInsightsRepository {
   Stream<ClientRecovery> watchRecovery(String clientUid);
+
+  /// Per-day recovery history keyed by `yyyy-MM-dd`, inclusive of [start] and [end].
+  Stream<Map<String, RecoveryDay>> watchRecoveryRange(
+    String clientUid,
+    DateTime start,
+    DateTime end,
+  );
 
   /// Null when there is no relationship document between the two.
   Stream<ClientRelationshipInfo?> watchRelationship({

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:yeetcoach/core/routes/app_routes.dart';
@@ -41,13 +42,19 @@ class ChatController extends GetxController {
   final RxBool canSend = false.obs;
   final RxBool isStartingCall = false.obs;
   final RxBool isDeleting = false.obs;
+
+  final RxBool selectionMode = false.obs;
+  final RxSet<String> selectedIds = <String>{}.obs;
+
   final TextEditingController textController = TextEditingController();
 
   String coachUid = '';
   String clientUid = '';
   String _chatId = '';
+  DateTime? _clearedAt;
 
   StreamSubscription<List<ChatMessage>>? _messagesSub;
+  StreamSubscription<DateTime?>? _clearedAtSub;
   bool _isMarkingRead = false;
   bool _markReadAgain = false;
 
@@ -81,7 +88,26 @@ class ChatController extends GetxController {
     }
 
     textController.addListener(_updateCanSend);
-    _messagesSub = _repository.watchMessages(_chatId).listen(
+    _clearedAtSub = _repository.watchClearedAt(_chatId, coachUid).listen(
+      _onClearedAt,
+      onError: (Object e) {
+        logDebug('ChatController: watchClearedAt error: $e');
+        // Still try to load messages without a clear cutoff.
+        _subscribeMessages(null);
+      },
+    );
+    _markAsRead();
+  }
+
+  void _onClearedAt(DateTime? clearedAt) {
+    if (_messagesSub != null && clearedAt == _clearedAt) return;
+    _clearedAt = clearedAt;
+    _subscribeMessages(clearedAt);
+  }
+
+  void _subscribeMessages(DateTime? clearedAt) {
+    _messagesSub?.cancel();
+    _messagesSub = _repository.watchMessages(_chatId, coachUid, clearedAt: clearedAt).listen(
       _onMessages,
       onError: (Object e) {
         // Expected before the first message if the chat document doesn't exist yet.
@@ -89,7 +115,6 @@ class ChatController extends GetxController {
         isLoading.value = false;
       },
     );
-    _markAsRead();
   }
 
   void _updateCanSend() => canSend.value = textController.text.trim().isNotEmpty;
@@ -106,6 +131,10 @@ class ChatController extends GetxController {
   void _onMessages(List<ChatMessage> latest) {
     messages.assignAll(latest);
     isLoading.value = false;
+    // Drop selection of messages that disappeared (soft-deleted / cleared).
+    final liveIds = latest.map((m) => m.id).toSet();
+    selectedIds.removeWhere((id) => !liveIds.contains(id));
+    if (selectedIds.isEmpty) selectionMode.value = false;
     // Messages that arrive while the chat is open are read immediately.
     if (latest.any((message) => message.senderId == clientUid && message.status.isUnread)) {
       _markAsRead();
@@ -127,6 +156,60 @@ class ChatController extends GetxController {
       logDebug('ChatController: markAsRead failed: $e');
     } finally {
       _isMarkingRead = false;
+    }
+  }
+
+  void enterSelection(String id) {
+    final message = messages.firstWhereOrNull((m) => m.id == id);
+    if (message == null || message.isPending) return;
+    selectionMode.value = true;
+    selectedIds
+      ..clear()
+      ..add(id);
+    HapticFeedback.lightImpact();
+  }
+
+  void toggleSelection(String id) {
+    final message = messages.firstWhereOrNull((m) => m.id == id);
+    if (message == null || message.isPending) return;
+    if (selectedIds.contains(id)) {
+      selectedIds.remove(id);
+    } else {
+      selectedIds.add(id);
+    }
+    if (selectedIds.isEmpty) selectionMode.value = false;
+  }
+
+  void clearSelection() {
+    selectedIds.clear();
+    selectionMode.value = false;
+  }
+
+  Future<void> copySelectedMessage() async {
+    if (selectedIds.length != 1) return;
+    final id = selectedIds.first;
+    final message = messages.firstWhereOrNull((m) => m.id == id);
+    if (message == null) return;
+    await Clipboard.setData(ClipboardData(text: message.text));
+    clearSelection();
+    showSuccessSnackbar('Copied');
+  }
+
+  Future<bool> deleteSelectedMessages() async {
+    if (selectedIds.isEmpty || isDeleting.value || _chatId.isEmpty) return false;
+    isDeleting.value = true;
+    final ids = selectedIds.toList();
+    try {
+      await _repository.deleteMessagesForMe(_chatId, ids, coachUid);
+      clearSelection();
+      showSuccessSnackbar('Deleted for you');
+      return true;
+    } catch (e) {
+      logDebug('ChatController: deleteMessagesForMe failed: $e');
+      showErrorSnackbar('Could not delete messages. Please try again.');
+      return false;
+    } finally {
+      isDeleting.value = false;
     }
   }
 
@@ -175,15 +258,15 @@ class ChatController extends GetxController {
     );
   }
 
-  /// Deletes this conversation. Returns whether the chat document was removed.
-  Future<bool> deleteChat() async {
+  /// Soft-clears this conversation for the coach. Returns whether the write succeeded.
+  Future<bool> clearChatForMe() async {
     if (_chatId.isEmpty || isDeleting.value) return false;
     isDeleting.value = true;
     try {
-      await _repository.deleteChat(_chatId);
+      await _repository.clearChatForMe(_chatId, coachUid);
       return true;
     } catch (e) {
-      logDebug('ChatController: deleteChat failed: $e');
+      logDebug('ChatController: clearChatForMe failed: $e');
       showErrorSnackbar('Could not delete the chat. Please try again.');
       return false;
     } finally {
@@ -215,6 +298,7 @@ class ChatController extends GetxController {
   @override
   void onClose() {
     _messagesSub?.cancel();
+    _clearedAtSub?.cancel();
     textController.dispose();
     super.onClose();
   }

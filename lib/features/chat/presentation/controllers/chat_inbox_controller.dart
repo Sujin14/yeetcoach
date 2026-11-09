@@ -59,10 +59,13 @@ class ChatInboxController extends GetxController {
       unreadCounts.remove(id);
     }
 
+    final coachUid = _auth.currentUser?.uid;
     for (final thread in latest) {
       _unreadSubs.putIfAbsent(
         thread.id,
-        () => _repository.watchUnreadCount(thread.id, thread.clientUid).listen(
+        () => _repository
+            .watchUnreadCount(thread.id, thread.clientUid, coachUid ?? '')
+            .listen(
               (count) => unreadCounts[thread.id] = count,
               onError: (Object e) => logDebug('ChatInboxController: unread count error: $e'),
             ),

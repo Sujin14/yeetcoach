@@ -36,6 +36,8 @@ enum ClientDetailSection {
   plan,
 }
 
+enum RecoveryChartMode { week, month }
+
 class ClientDetailController extends GetxController {
   final IClientProfileRepository _clientRepo;
   final ICallRepository _callRepo;
@@ -61,6 +63,13 @@ class ClientDetailController extends GetxController {
   final RxSet<ClientDetailSection> loadingSections = ClientDetailSection.values.toSet().obs;
 
   final Rx<ClientRecovery> recovery = ClientRecovery.empty.obs;
+  final Rx<RecoveryChartMode> chartMode = RecoveryChartMode.week.obs;
+  final Rx<DateTime> chartAnchorDate = Rx<DateTime>(_dateOnly(DateTime.now()));
+  final RxMap<String, RecoveryDay> recoveryRange = <String, RecoveryDay>{}.obs;
+  final RxBool recoveryRangeLoading = true.obs;
+  final RxnString recoveryRangeError = RxnString();
+  StreamSubscription<Map<String, RecoveryDay>>? _recoveryRangeSub;
+
   final Rx<ClientRelationshipInfo?> relationship = Rx<ClientRelationshipInfo?>(null);
   final Rx<DailyGoalMetric?> sleep = Rx<DailyGoalMetric?>(null);
   final Rx<DailyGoalMetric?> water = Rx<DailyGoalMetric?>(null);
@@ -112,6 +121,7 @@ class ClientDetailController extends GetxController {
     );
     _coachUid = _auth.currentUser?.uid ?? '';
     _watchInsights();
+    _subscribeRecoveryRange();
   }
 
   bool isSectionLoading(ClientDetailSection section) => loadingSections.contains(section);
@@ -194,19 +204,81 @@ class ClientDetailController extends GetxController {
     ));
   }
 
-  /// The last seven days ending today. Only the latest score is readable by the coach
-  /// (YeetFit's per-day history is private), so it lands on the day it was calculated.
-  List<RecoveryDay> get weeklyRecovery {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final current = recovery.value;
-    final updated = current.updatedAt ?? (current.hasScore ? now : null);
-    final scoredDay = updated == null ? null : DateTime(updated.year, updated.month, updated.day);
-    return List.generate(7, (index) {
-      final day = DateTime(today.year, today.month, today.day - (6 - index));
-      return RecoveryDay(date: day, score: day == scoredDay ? current.score : null);
-    });
+  (DateTime start, DateTime end) get chartPeriod {
+    final anchor = _dateOnly(chartAnchorDate.value);
+    if (chartMode.value == RecoveryChartMode.week) {
+      final monday = anchor.subtract(Duration(days: anchor.weekday - DateTime.monday));
+      final sunday = monday.add(const Duration(days: 6));
+      return (monday, sunday);
+    }
+    final start = DateTime(anchor.year, anchor.month, 1);
+    final end = DateTime(anchor.year, anchor.month + 1, 0);
+    return (start, end);
   }
+
+  String get chartPeriodLabel {
+    final (start, end) = chartPeriod;
+    if (chartMode.value == RecoveryChartMode.week) {
+      return '${DateFormat('d MMM').format(start)} – ${DateFormat('d MMM').format(end)}';
+    }
+    return DateFormat('MMMM yyyy').format(start);
+  }
+
+  bool get canGoNext {
+    final today = _dateOnly(DateTime.now());
+    final (_, end) = chartPeriod;
+    return end.isBefore(today);
+  }
+
+  void setChartMode(RecoveryChartMode mode) {
+    if (chartMode.value == mode) return;
+    chartMode.value = mode;
+    _subscribeRecoveryRange();
+  }
+
+  void previousPeriod() {
+    final anchor = _dateOnly(chartAnchorDate.value);
+    chartAnchorDate.value = chartMode.value == RecoveryChartMode.week
+        ? anchor.subtract(const Duration(days: 7))
+        : DateTime(anchor.year, anchor.month - 1, 1);
+    _subscribeRecoveryRange();
+  }
+
+  void nextPeriod() {
+    if (!canGoNext) return;
+    final anchor = _dateOnly(chartAnchorDate.value);
+    chartAnchorDate.value = chartMode.value == RecoveryChartMode.week
+        ? anchor.add(const Duration(days: 7))
+        : DateTime(anchor.year, anchor.month + 1, 1);
+    _subscribeRecoveryRange();
+  }
+
+  void _subscribeRecoveryRange() {
+    _recoveryRangeSub?.cancel();
+    recoveryRangeLoading.value = true;
+    recoveryRangeError.value = null;
+    final (start, end) = chartPeriod;
+    _recoveryRangeSub = _insightsRepo.watchRecoveryRange(clientUid, start, end).listen(
+      (days) {
+        recoveryRange
+          ..clear()
+          ..addAll(days);
+        recoveryRangeLoading.value = false;
+      },
+      onError: (Object e) {
+        logDebug('ClientDetailController: recovery range error: $e');
+        recoveryRange.clear();
+        recoveryRangeError.value = 'Could not load recovery history.';
+        recoveryRangeLoading.value = false;
+      },
+    );
+  }
+
+  static DateTime _dateOnly(DateTime value) => DateTime(value.year, value.month, value.day);
+
+  String dateKey(DateTime day) => DateFormat('yyyy-MM-dd').format(_dateOnly(day));
+
+  RecoveryDay? recoveryFor(DateTime day) => recoveryRange[dateKey(day)];
 
   void togglePlanExpanded() => isPlanExpanded.toggle();
 
@@ -338,6 +410,7 @@ class ClientDetailController extends GetxController {
   @override
   void onClose() {
     _sub?.cancel();
+    _recoveryRangeSub?.cancel();
     for (final sub in _insightSubs) {
       sub.cancel();
     }

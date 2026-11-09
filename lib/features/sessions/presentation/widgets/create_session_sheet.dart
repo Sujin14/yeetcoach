@@ -103,171 +103,227 @@ class _CreateSessionSheetState extends State<CreateSessionSheet> {
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+                child: SizedBox(width: 40, height: 4),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, 0, AppSpacing.xs, 0),
+            child: Row(
               children: [
-                Text(
-                  'Schedule session',
-                  style: _textTheme.titleLarge?.copyWith(fontSize: 18, color: AppColors.onSurface),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: _title,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(labelText: 'Title *', focusedBorder: focusedBorder),
-                  validator: (value) => (value?.trim().isEmpty ?? true) ? 'Enter a title.' : null,
-                ),
-                const SizedBox(height: AppSpacing.smd),
-                TextFormField(
-                  controller: _meetLink,
-                  keyboardType: TextInputType.url,
-                  decoration: InputDecoration(
-                    labelText: 'Google Meet link *',
-                    hintText: 'https://meet.google.com/...',
-                    focusedBorder: focusedBorder,
-                  ),
-                  validator: _validateMeetLink,
-                ),
-                const SizedBox(height: AppSpacing.smd),
-                InkWell(
-                  onTap: _pickDateTime,
-                  borderRadius: BorderRadius.circular(8),
-                  child: InputDecorator(
-                    decoration: InputDecoration(
-                      labelText: 'Date & Time *',
-                      errorText: _dateError,
-                      focusedBorder: focusedBorder,
-                    ),
-                    child: Text(
-                      scheduledAt == null
-                          ? 'Select date and time'
-                          : DateFormat('EEE, d MMM · h:mm a').format(scheduledAt),
-                      style: _textTheme.bodyMedium?.copyWith(
-                        fontSize: 14,
-                        color: scheduledAt == null ? AppColors.subtle : AppColors.onSurface,
-                      ),
+                Expanded(
+                  child: Text(
+                    'Schedule session',
+                    style: _textTheme.titleLarge?.copyWith(
+                      fontSize: 18,
+                      color: AppColors.onSurface,
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.smd),
-                Wrap(
-                  spacing: 8,
-                  children: [30, 45, 60, 90].map((mins) {
-                    final selected = _durationMinutes == mins;
-                    return ChoiceChip(
-                      label: Text('$mins min'),
-                      selected: selected,
-                      onSelected: (_) => setState(() => _durationMinutes = mins),
-                      selectedColor: AppColors.primary,
-                      labelStyle: TextStyle(
-                        color: selected ? AppColors.onPrimary : AppColors.onSurface,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                      backgroundColor: AppColors.surface,
-                      side: BorderSide(color: selected ? AppColors.primary : AppColors.divider),
-                    );
-                  }).toList(),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close, color: AppColors.subtle),
                 ),
-                const SizedBox(height: AppSpacing.smd),
-                TextFormField(
-                  controller: _notes,
-                  minLines: 2,
-                  maxLines: 4,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: InputDecoration(
-                    labelText: 'Notes (optional)',
-                    alignLabelWithHint: true,
-                    focusedBorder: focusedBorder,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  'Who can join?',
-                  style: _textTheme.titleMedium?.copyWith(fontSize: 15, color: AppColors.onSurface),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Open to all YeetFit users',
-                        style: _textTheme.bodyMedium?.copyWith(fontSize: 14, color: AppColors.onSurface),
-                      ),
-                    ),
-                    Obx(() => Switch(
-                          value: _controller.isGlobal.value,
-                          activeThumbColor: AppColors.onPrimary,
-                          activeTrackColor: AppColors.primary,
-                          onChanged: (value) => _controller.isGlobal.value = value,
-                        )),
-                  ],
-                ),
-                Obx(() {
-                  if (_controller.isGlobal.value) return const SizedBox.shrink();
-                  if (_controller.isLoadingClients.value) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                      child: Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                        ),
-                      ),
-                    );
-                  }
-                  final clients = _controller.myClients;
-                  if (clients.isEmpty) {
-                    return Text(
-                      'You have no clients to invite.',
-                      style: _textTheme.bodySmall?.copyWith(fontSize: 12, color: AppColors.subtle),
-                    );
-                  }
-                  final allSelected = _controller.selectedClientUids.length == clients.length;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton(
-                          onPressed: _controller.toggleSelectAll,
-                          child: Text(allSelected ? 'Deselect all' : 'Select all'),
-                        ),
-                      ),
-                      ...clients.map(_clientTile),
-                    ],
-                  );
-                }),
-                const SizedBox(height: 20),
-                Obx(() {
-                  final saving = _controller.isSaving.value;
-                  return ElevatedButton(
-                    onPressed: saving ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: AppColors.onPrimary,
-                      disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
-                    ),
-                    child: saving
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onPrimary),
-                          )
-                        : const Text('Save'),
-                  );
-                }),
               ],
             ),
           ),
-        ),
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _title,
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(labelText: 'Title *', focusedBorder: focusedBorder),
+                      validator: (value) =>
+                          (value?.trim().isEmpty ?? true) ? 'Enter a title.' : null,
+                    ),
+                    const SizedBox(height: AppSpacing.smd),
+                    TextFormField(
+                      controller: _meetLink,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        labelText: 'Google Meet link *',
+                        hintText: 'https://meet.google.com/...',
+                        focusedBorder: focusedBorder,
+                      ),
+                      validator: _validateMeetLink,
+                    ),
+                    const SizedBox(height: AppSpacing.smd),
+                    InkWell(
+                      onTap: _pickDateTime,
+                      borderRadius: BorderRadius.circular(8),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Date & Time *',
+                          errorText: _dateError,
+                          focusedBorder: focusedBorder,
+                        ),
+                        child: Text(
+                          scheduledAt == null
+                              ? 'Select date and time'
+                              : DateFormat('EEE, d MMM · h:mm a').format(scheduledAt),
+                          style: _textTheme.bodyMedium?.copyWith(
+                            fontSize: 14,
+                            color: scheduledAt == null ? AppColors.subtle : AppColors.onSurface,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.smd),
+                    Wrap(
+                      spacing: 8,
+                      children: [30, 45, 60, 90].map((mins) {
+                        final selected = _durationMinutes == mins;
+                        return ChoiceChip(
+                          label: Text('$mins min'),
+                          selected: selected,
+                          onSelected: (_) => setState(() => _durationMinutes = mins),
+                          selectedColor: AppColors.primary,
+                          labelStyle: TextStyle(
+                            color: selected ? AppColors.onPrimary : AppColors.onSurface,
+                            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                          ),
+                          backgroundColor: AppColors.surface,
+                          side: BorderSide(color: selected ? AppColors.primary : AppColors.divider),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: AppSpacing.smd),
+                    TextFormField(
+                      controller: _notes,
+                      minLines: 2,
+                      maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: InputDecoration(
+                        labelText: 'Notes (optional)',
+                        alignLabelWithHint: true,
+                        focusedBorder: focusedBorder,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Who can join?',
+                      style: _textTheme.titleMedium?.copyWith(
+                        fontSize: 15,
+                        color: AppColors.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Open to all YeetFit users',
+                            style: _textTheme.bodyMedium?.copyWith(
+                              fontSize: 14,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                        ),
+                        Obx(() => Switch(
+                              value: _controller.isGlobal.value,
+                              activeThumbColor: AppColors.onPrimary,
+                              activeTrackColor: AppColors.primary,
+                              onChanged: (value) => _controller.isGlobal.value = value,
+                            )),
+                      ],
+                    ),
+                    Obx(() {
+                      if (_controller.isGlobal.value) return const SizedBox.shrink();
+                      if (_controller.isLoadingClients.value) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      final clients = _controller.myClients;
+                      if (clients.isEmpty) {
+                        return Text(
+                          'You have no clients to invite.',
+                          style: _textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            color: AppColors.subtle,
+                          ),
+                        );
+                      }
+                      final allSelected =
+                          _controller.selectedClientUids.length == clients.length;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: _controller.toggleSelectAll,
+                              child: Text(allSelected ? 'Deselect all' : 'Select all'),
+                            ),
+                          ),
+                          ...clients.map(_clientTile),
+                        ],
+                      );
+                    }),
+                    const SizedBox(height: 20),
+                    Obx(() {
+                      final saving = _controller.isSaving.value;
+                      return ElevatedButton(
+                        onPressed: saving ? null : _save,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.onPrimary,
+                          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                        ),
+                        child: saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.onPrimary,
+                                ),
+                              )
+                            : const Text('Save'),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

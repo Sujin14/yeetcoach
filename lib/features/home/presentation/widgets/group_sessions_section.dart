@@ -26,8 +26,14 @@ class GroupSessionsSection extends GetView<SessionController> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      enableDrag: true,
+      isDismissible: true,
       backgroundColor: AppColors.surface,
       shape: _sheetShape,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      ),
       builder: (_) => const CreateSessionSheet(),
     );
   }

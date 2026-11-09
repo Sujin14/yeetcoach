@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'package:yeetcoach/core/constants/firestore_collections.dart';
+import 'package:yeetcoach/core/utils/log_debug.dart';
 import 'package:yeetcoach/features/home/domain/entities/recovery_level.dart';
 import '../../domain/entities/assigned_workout_plan.dart';
 import '../../domain/entities/client_recovery.dart';
 import '../../domain/entities/client_relationship_info.dart';
 import '../../domain/entities/daily_goal_metric.dart';
 import '../../domain/entities/nutrition_summary.dart';
+import '../../domain/entities/recovery_day.dart';
 import '../../domain/entities/workout_log_summary.dart';
 import '../../domain/repositories/i_client_insights_repository.dart';
 
@@ -38,6 +41,56 @@ class FirestoreClientInsightsService {
         updatedAt: _toDateTime(data['recoveryUpdatedAt']),
       );
     });
+  }
+
+  /// users/{clientUid}/recovery docs with `date` in [start, end] (local calendar days).
+  Stream<Map<String, RecoveryDay>> watchRecoveryRange(
+    String clientUid,
+    DateTime start,
+    DateTime end,
+  ) {
+    final startKey = DateFormat('yyyy-MM-dd').format(DateTime(start.year, start.month, start.day));
+    final endKey = DateFormat('yyyy-MM-dd').format(DateTime(end.year, end.month, end.day));
+    return _user(clientUid)
+        .collection(FirestoreCollections.userRecovery)
+        .where('date', isGreaterThanOrEqualTo: startKey)
+        .where('date', isLessThanOrEqualTo: endKey)
+        .snapshots()
+        .map(_parseRecoveryRange)
+        .transform(
+          StreamTransformer<Map<String, RecoveryDay>, Map<String, RecoveryDay>>.fromHandlers(
+            handleError: (error, stackTrace, sink) {
+              logDebug('FirestoreClientInsightsService: watchRecoveryRange failed: $error');
+              sink.add(const {});
+            },
+          ),
+        );
+  }
+
+  static Map<String, RecoveryDay> _parseRecoveryRange(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final days = <String, RecoveryDay>{};
+    for (final doc in snapshot.docs) {
+      try {
+        final data = doc.data();
+        final key = data['date'] as String? ?? doc.id;
+        final parsed = DateTime.tryParse(key);
+        if (parsed == null) continue;
+        final rawScore = (data['score'] as num?)?.toInt();
+        if (rawScore == null) continue;
+        final score = rawScore.clamp(0, 100);
+        final level = RecoveryLevel.tryParse(data['level']) ?? RecoveryLevel.tryParse(score);
+        days[key] = RecoveryDay(
+          date: DateTime(parsed.year, parsed.month, parsed.day),
+          score: score,
+          level: level,
+        );
+      } catch (e) {
+        logDebug('FirestoreClientInsightsService: skip recovery doc ${doc.id}: $e');
+      }
+    }
+    return days;
   }
 
   Stream<ClientRelationshipInfo?> watchRelationship({

@@ -70,8 +70,9 @@ class _LoginFormState extends State<LoginForm> {
               height: 48,
               child: CustomButton(
                 text: 'Login',
-                isLoading: authController.isLoading.value,
+                isLoading: authController.isEmailLoading,
                 onPressed: () async {
+                  if (authController.isBusy) return;
                   if (formKey.currentState!.validate()) {
                     await authController.login(
                       emailController.text.trim(),

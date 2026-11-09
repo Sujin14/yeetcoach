@@ -89,15 +89,14 @@ class _SignUpFormState extends State<SignUpForm> {
               ),
             ),
             SizedBox(height: 24.h),
-            const _TermsAgreement(),
-            SizedBox(height: 12.h),
             SizedBox(
               width: double.infinity,
               height: 48,
               child: CustomButton(
                 text: 'Sign Up',
-                isLoading: authController.isLoading.value,
+                isLoading: authController.isEmailLoading,
                 onPressed: () async {
+                  if (authController.isBusy) return;
                   if (!authController.agreedToTerms.value) {
                     showErrorSnackbar(
                       'Please accept the Terms & Conditions and Privacy Policy to continue.',
@@ -123,14 +122,15 @@ class _SignUpFormState extends State<SignUpForm> {
   }
 }
 
-class _TermsAgreement extends StatefulWidget {
-  const _TermsAgreement();
+/// Checkbox + legal links shown under the sign-up footer login prompt.
+class SignUpTermsAgreement extends StatefulWidget {
+  const SignUpTermsAgreement({super.key});
 
   @override
-  State<_TermsAgreement> createState() => _TermsAgreementState();
+  State<SignUpTermsAgreement> createState() => _SignUpTermsAgreementState();
 }
 
-class _TermsAgreementState extends State<_TermsAgreement> {
+class _SignUpTermsAgreementState extends State<SignUpTermsAgreement> {
   late final TapGestureRecognizer _termsRecognizer;
   late final TapGestureRecognizer _privacyRecognizer;
   final AuthController _controller = Get.find<AuthController>();
@@ -160,7 +160,11 @@ class _TermsAgreementState extends State<_TermsAgreement> {
 
   @override
   Widget build(BuildContext context) {
-    final linkStyle = TextStyle(
+    final plainStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 14.sp,
+    );
+    final linkStyle = plainStyle.copyWith(
       color: AppColors.primary,
       decoration: TextDecoration.underline,
     );
@@ -171,12 +175,16 @@ class _TermsAgreementState extends State<_TermsAgreement> {
           Checkbox(
             value: _controller.agreedToTerms.value,
             onChanged: (value) => _controller.agreedToTerms.value = value ?? false,
+            side: const BorderSide(color: Colors.white70),
+            checkColor: AppColors.onPrimary,
+            activeColor: AppColors.primary,
           ),
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 12),
               child: Text.rich(
                 TextSpan(
+                  style: plainStyle,
                   children: [
                     const TextSpan(text: 'I agree to the '),
                     TextSpan(

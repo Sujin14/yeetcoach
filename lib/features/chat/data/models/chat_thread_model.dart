@@ -9,6 +9,8 @@ class ChatThreadModel extends ChatThread {
     required super.clientUid,
     required super.lastMessage,
     super.lastActivityAt,
+    super.lastMessageTime,
+    super.clearedAt,
   });
 
   factory ChatThreadModel.fromSnapshot(
@@ -19,11 +21,18 @@ class ChatThreadModel extends ChatThread {
     final participants = (data['participants'] as List?)?.whereType<String>() ?? const <String>[];
     final updatedAt = (data['updatedAt'] as Timestamp?)?.toDate();
     final lastMessageTime = (data['lastMessageTime'] as Timestamp?)?.toDate();
+    final clearedAtRaw = data['clearedAt'];
+    DateTime? clearedAt;
+    if (clearedAtRaw is Map) {
+      clearedAt = (clearedAtRaw[coachUid] as Timestamp?)?.toDate();
+    }
     return ChatThreadModel(
       id: doc.id,
       clientUid: participants.firstWhere((uid) => uid != coachUid, orElse: () => ''),
       lastMessage: data['lastMessage'] as String? ?? '',
       lastActivityAt: _later(updatedAt, lastMessageTime),
+      lastMessageTime: lastMessageTime,
+      clearedAt: clearedAt,
     );
   }
 

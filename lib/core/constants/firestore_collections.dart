@@ -31,4 +31,7 @@ abstract final class FirestoreCollections {
   static const String progressSteps      = 'steps';
   static const String progressWorkout    = 'workout';
   static const String progressFood       = 'food';
+
+  // YeetFit per-day recovery: users/{uid}/recovery/{yyyy-MM-dd}.
+  static const String userRecovery       = 'recovery';
 }
